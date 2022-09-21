@@ -26,8 +26,13 @@
 //     pb.finish_with_message("downloaded")
 // }
 
+mod api;
+mod cookies;
+
+#[macro_use]
+extern crate simple_error;
+
 use clap::Parser;
-use std::path::PathBuf;
 
 const FORMATS: &'static [&'static str] = &[
     "flac",
@@ -61,17 +66,24 @@ struct Args {
         short,
         long = "output-folder",
         value_name = "FOLDER",
-        default_value = "./",
-        value_parser
+        default_value = "./"
     )]
-    output_folder: PathBuf,
+    output_folder: String,
 
     /// The amount of parallel jobs (threads) to use.
     #[clap(short, long, default_value_t = 4)]
     jobs: u8,
 }
 
-fn main() {
-    let args = Args::parse();
-    println!("{:?}", args)
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // let args = Args::parse();
+    // println!("{:?}", args);
+    let bandcamp_cookies = cookies::get_bandcamp_cookies(Some("./cookies.json"))?;
+    let cookie = cookies::cookies_to_string(&bandcamp_cookies);
+    let api = api::Api::new(cookie);
+    let result = api.get_download_urls("ovyerus").await?;
+    println!("{:?}", result.download_urls);
+
+    Ok(())
 }
