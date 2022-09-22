@@ -1,11 +1,13 @@
+use futures_util::StreamExt;
+use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::{Client, RequestBuilder};
 use serde::Serialize;
 use soup::prelude::*;
-use std::convert::TryInto;
-use surf::{Client, Config, Url};
-// use std::sync::Arc;
 use std::error::Error;
+use std::fs::File;
+use std::io::Write;
 
-mod structs;
+pub mod structs;
 use crate::api::structs::*;
 
 pub struct BandcampPage {
@@ -22,34 +24,37 @@ struct PostCollectionBody<'a> {
 
 pub struct Api {
     client: Client,
-    cookies: String,
+    // cookies: String,
 }
 
 impl Api {
     pub fn new(cookies: String) -> Api {
-        let client: Client = Config::new()
-            .set_base_url(Url::parse("https://bandcamp.com").unwrap())
-            .try_into()
-            .unwrap();
+        // Cookie jar doesn't work properly for some reason, I'm probably doing
+        // something wrong there.
+        let mut headers = HeaderMap::new();
+        headers.insert("Cookie", HeaderValue::from_str(&cookies).unwrap());
 
-        Api { client, cookies }
+        let client = Client::builder().default_headers(headers).build().unwrap();
+
+        Api { client }
     }
 
-    fn authenticated_get(&self, path: &str) -> surf::RequestBuilder {
-        self.client.get(path).header("Cookie", &self.cookies)
+    fn bc_path(path: &str) -> String {
+        format!("https://bandcamp.com/{path}")
     }
 
-    fn authenticated_post(&self, path: &str) -> surf::RequestBuilder {
-        self.client.post(path).header("Cookie", &self.cookies)
+    fn get(&self, path: &str) -> RequestBuilder {
+        self.client.get(path)
+    }
+
+    fn post(&self, path: &str) -> RequestBuilder {
+        self.client.post(path)
     }
 
     /// Scrape a user's Bandcamp page to find download urls
     pub async fn get_download_urls(&self, name: &str) -> Result<BandcampPage, Box<dyn Error>> {
-        let res = self
-            .authenticated_get(&format!("/{name}"))
-            .recv_string()
-            .await?;
-        let soup = Soup::new(&res);
+        let body = self.get(&Api::bc_path(name)).send().await?.text().await?;
+        let soup = Soup::new(&body);
 
         let data_el = soup
             .attr("id", "pagedata")
@@ -127,31 +132,29 @@ impl Api {
                 fan_id: &data.fan_data.fan_id,
                 older_than_token: &last_token,
             };
-            let resp = self
-                .authenticated_post(&format!("/api/fancollection/1/{collection_name}"))
-                .body_json(&body)?
-                .recv_json::<ParsedCollectionItems>()
-                .await
-                .expect("what");
+            let res = self
+                .post(&Api::bc_path(&format!(
+                    "api/fancollection/1/{collection_name}"
+                )))
+                .body(serde_json::to_string(&body)?)
+                .send()
+                .await?
+                .text()
+                .await?;
+            let body = serde_json::from_str::<ParsedCollectionItems>(&res)?;
 
-            collection.extend(resp.redownload_urls);
-            more_available = resp.more_available;
-            last_token = resp.last_token;
+            collection.extend(body.redownload_urls);
+            more_available = body.more_available;
+            last_token = body.last_token;
         }
 
         Ok(collection)
     }
 
     // TODO: cache on API object?
-    pub async fn get_digital_item(
-        &self,
-        download_urls: &DownloadsMap,
-        sale_item_id: &str,
-    ) -> Result<DigitalItem, Box<dyn Error>> {
-        // Treat 404s as null
-        let url = download_urls.get(sale_item_id).unwrap();
-        let resp = self.authenticated_get(url).recv_string().await?;
-        let soup = Soup::new(&resp);
+    pub async fn get_digital_item(&self, url: &str) -> Result<DigitalItem, Box<dyn Error>> {
+        let res = self.get(&url).send().await?.text().await?;
+        let soup = Soup::new(&res);
 
         let download_page_blob = soup
             .attr("id", "pagedata")

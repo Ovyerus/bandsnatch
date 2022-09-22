@@ -2,7 +2,7 @@ use serde::Deserialize;
 use serde_aux::prelude::deserialize_string_from_number;
 use std::collections::HashMap;
 
-mod digital_item;
+pub mod digital_item;
 pub use crate::api::structs::digital_item::DigitalItem;
 
 pub type DownloadsMap = HashMap<String, String>;
@@ -60,4 +60,10 @@ pub struct ParsedCollectionItems {
 #[derive(Deserialize, Debug)]
 pub struct ParsedItemsData {
     pub digital_items: Vec<DigitalItem>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ParsedStatDownload {
+    pub download_url: String,
+    pub url: String,
 }
