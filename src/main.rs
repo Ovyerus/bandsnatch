@@ -1,36 +1,15 @@
-// use std::thread;
-// use std::time::Duration;
-// use std::{cmp::min, fmt::Write};
-
-// use indicatif::{ProgressBar, ProgressState, ProgressStyle};
-
-// fn main() {
-//     let mut downloaded = 0;
-//     let total_size = 231231231;
-
-//     let pb = ProgressBar::new(total_size);
-//     pb.set_style(
-//         ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
-//             .unwrap()
-//             .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
-//             .progress_chars("#>-")
-//     );
-
-//     while downloaded < total_size {
-//         let new = min(downloaded + 223211, total_size);
-//         downloaded = new;
-//         pb.set_position(new);
-//         thread::sleep(Duration::from_millis(12));
-//     }
-
-//     pb.finish_with_message("downloaded")
-// }
-
 mod api;
 mod cookies;
+mod util;
 
 #[macro_use]
 extern crate simple_error;
+
+// use crate::api::structs::digital_item::DigitalItem;
+use indicatif::{ProgressBar, ProgressState, ProgressStyle};
+// use std::collections::HashMap;
+use std::fmt::Write;
+use std::fs;
 
 use clap::Parser;
 
@@ -82,8 +61,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bandcamp_cookies = cookies::get_bandcamp_cookies(Some("./cookies.json"))?;
     let cookie = cookies::cookies_to_string(&bandcamp_cookies);
     let api = api::Api::new(cookie);
-    let result = api.get_download_urls("ovyerus").await?;
-    println!("{:?}", result.download_urls);
+
+    let api::BandcampPage {
+        download_urls,
+        page_name: _,
+    } = api.get_download_urls("ovyerus").await?;
+
+    let key = "p190890686";
+    println!("trying {key}");
+    let item = api
+        .get_digital_item(download_urls.get(key).unwrap())
+        .await?;
+    println!("{:?}", item.is_single());
+
+    let path = item.destination_path("./test");
+    fs::create_dir_all(path)?;
+
+    let pb = ProgressBar::new(0);
+    pb.set_style(
+        ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
+        .unwrap()
+        .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
+            .progress_chars("#>-")
+    );
+
+    api.download_item(&item, item.destination_path("./test"), "mp3-320", &pb)
+        .await?;
+    // let real = api.retrieve_real_download_url(&item, "flac").await?;
 
     Ok(())
 }

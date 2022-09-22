@@ -1,14 +1,15 @@
 use futures_util::StreamExt;
-use reqwest::header::{HeaderMap, HeaderValue};
+use reqwest::header::{HeaderMap, HeaderValue, CONTENT_DISPOSITION};
 use reqwest::{Client, RequestBuilder};
 use serde::Serialize;
 use soup::prelude::*;
 use std::error::Error;
-use std::fs::File;
-use std::io::Write;
+use std::fs::{self, File};
+use std::io::{BufReader, Write};
 
 pub mod structs;
 use crate::api::structs::*;
+use crate::util::slice_string;
 
 pub struct BandcampPage {
     pub download_urls: DownloadsMap,
@@ -132,16 +133,15 @@ impl Api {
                 fan_id: &data.fan_data.fan_id,
                 older_than_token: &last_token,
             };
-            let res = self
+            let body = self
                 .post(&Api::bc_path(&format!(
                     "api/fancollection/1/{collection_name}"
                 )))
-                .body(serde_json::to_string(&body)?)
+                .json(&body)
                 .send()
                 .await?
-                .text()
+                .json::<ParsedCollectionItems>()
                 .await?;
-            let body = serde_json::from_str::<ParsedCollectionItems>(&res)?;
 
             collection.extend(body.redownload_urls);
             more_available = body.more_available;
@@ -166,5 +166,100 @@ impl Api {
         let item = digital_items.first().cloned().unwrap();
 
         Ok(item)
+    }
+
+    // pub async fn retrieve_real_download_url(
+    //     &self,
+    //     item: &DigitalItem,
+    //     audio_format: &str,
+    // ) -> Result<String, Box<dyn Error>> {
+    //     let downloads = &item.downloads;
+    //     let download_url = &downloads.get(audio_format).unwrap().url;
+
+    //     // TODO: do some testing to see if this is all really necessary, and if
+    //     // we can just use the url given above (since it works in the browser).
+    //     let random = rand::random::<u8>();
+    //     let url = download_url
+    //         .clone()
+    //         .replace("/download/", "/statdownload/")
+    //         .replace("http:", "https")
+    //         + &format!("&.vrs=1&.rand={random}");
+    //     let js_content = self.get(&url).send().await?.text().await?;
+    //     let json_text = js_content
+    //         .replace("if ( window.Downloads ) { Downloads.statResult ( ", "")
+    //         .replace(" ) };", "");
+    //     let json = serde_json::from_str::<ParsedStatDownload>(&json_text)?;
+
+    //     Ok(json.download_url)
+    // }
+
+    pub async fn download_item(
+        &self,
+        item: &DigitalItem,
+        path: String,
+        audio_format: &str,
+        pb: &indicatif::ProgressBar,
+    ) -> Result<(), Box<dyn Error>> {
+        // let download_url = self
+        //     .retrieve_real_download_url(item, audio_format)
+        //     .await
+        //     .expect("Failed to retrieve item download URL");
+        let download_url = &item.downloads.get(audio_format).unwrap().url;
+        let res = self.get(download_url).send().await?;
+
+        let disposition = res.headers().get(CONTENT_DISPOSITION).unwrap();
+        // What should the default be?
+        // Should probably use a thing to properly parse the content of content disposition.
+        let filename = slice_string(
+            disposition
+                .to_str()?
+                .split("; ")
+                .find(|x| x.starts_with("filename="))
+                .unwrap(),
+            9,
+        )
+        .trim_matches('"');
+
+        let total_size = res.content_length().unwrap();
+
+        pb.set_length(total_size);
+        pb.set_message(format!("{} - {}", item.title, item.artist));
+
+        // TODO: tokio IO for threading?
+        let full_path = format!("{path}/{filename}");
+        let mut file = File::create(&full_path)?;
+        let mut downloaded: u64 = 0;
+        let mut stream = res.bytes_stream();
+
+        while let Some(item) = stream.next().await {
+            // TODO: Handle better
+            let chunk = item?;
+            file.write_all(&chunk)?;
+
+            let new = std::cmp::min(downloaded + (chunk.len() as u64), total_size);
+            downloaded = new;
+            pb.set_position(new)
+        }
+
+        // TODO: see if we can have a interim buffer for the downloaded data,
+        // and write directly to file if it's a single, or extract to the FS
+        // without a intermediate file. (Is this a better idea? could possibly
+        // fuck memory on large releases though).
+        drop(file);
+
+        if !item.is_single() {
+            println!("Extracting zip");
+            let file = File::open(&full_path)?;
+            let reader = BufReader::new(file);
+            let mut archive = zip::ZipArchive::new(reader)?;
+
+            archive.extract(path)?;
+            fs::remove_file(&full_path)?;
+        }
+        // Cover folder downloading
+
+        pb.finish_with_message("Done");
+
+        Ok(())
     }
 }
