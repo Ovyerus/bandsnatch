@@ -32,6 +32,18 @@ fn validate_audio_format(name: &str) -> Result<(), String> {
     }
 }
 
+macro_rules! skip_err {
+    ($res:expr) => {
+        match $res {
+            Ok(val) => val,
+            Err(e) => {
+                println!("An error: {}; skipped.", e);
+                continue;
+            }
+        }
+    };
+}
+
 #[derive(Parser, Debug)]
 #[clap(name = "bcdl", author, version, long_about = None)]
 struct Args {
@@ -67,27 +79,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         page_name: _,
     } = api.get_download_urls("ovyerus").await?;
 
-    let key = "p190890686";
-    println!("trying {key}");
-    let item = api
-        .get_digital_item(download_urls.get(key).unwrap())
-        .await?;
-    println!("{:?}", item.is_single());
+    // let ids = &["p190890686", "p73637968", "r212538021", "p189790127"];
 
-    let path = item.destination_path("./test");
-    fs::create_dir_all(path)?;
+    let style =
+        ProgressStyle::with_template("{bar:10} ({bytes}/{total_bytes}) {wide_msg}").unwrap();
+    let audio_format = "mp3-320";
 
-    let pb = ProgressBar::new(0);
-    pb.set_style(
-        ProgressStyle::with_template("{spinner:.green} [{elapsed_precise}] [{wide_bar:.cyan/blue}] {bytes}/{total_bytes} ({eta})")
-        .unwrap()
-        .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
-            .progress_chars("#>-")
-    );
+    // Artificial limit for testing.
+    for (id, url) in download_urls.iter().take(5) {
+        let item = skip_err!(api.get_digital_item(&url).await);
+        println!(
+            "Trying {id}, {} - {} ({:?})",
+            item.title,
+            item.artist,
+            item.is_single()
+        );
 
-    api.download_item(&item, item.destination_path("./test"), "mp3-320", &pb)
-        .await?;
-    // let real = api.retrieve_real_download_url(&item, "flac").await?;
+        // TODO: set up a MultiProgress & assign bars to it, when threading.
+        let pb = ProgressBar::new(0);
+        pb.set_style(style.clone());
+
+        let path = item.destination_path("./test");
+        skip_err!(fs::create_dir_all(&path));
+
+        skip_err!(api.download_item(&item, &path, audio_format, &pb).await);
+    }
+
+    println!("Finished!");
 
     Ok(())
 }

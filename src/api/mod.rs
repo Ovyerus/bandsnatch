@@ -1,4 +1,5 @@
 use futures_util::StreamExt;
+use indicatif::ProgressStyle;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_DISPOSITION};
 use reqwest::{Client, RequestBuilder};
 use serde::Serialize;
@@ -196,7 +197,7 @@ impl Api {
     pub async fn download_item(
         &self,
         item: &DigitalItem,
-        path: String,
+        path: &str,
         audio_format: &str,
         pb: &indicatif::ProgressBar,
     ) -> Result<(), Box<dyn Error>> {
@@ -221,11 +222,13 @@ impl Api {
         .trim_matches('"');
 
         let total_size = res.content_length().unwrap();
+        let full_title = format!("{} - {}", item.title, item.artist);
 
         pb.set_length(total_size);
-        pb.set_message(format!("{} - {}", item.title, item.artist));
+        pb.set_message(full_title.clone());
 
         // TODO: tokio IO for threading?
+        // TODO: drop file with `.part` extension instead, while downloading, and then rename when finished.
         let full_path = format!("{path}/{filename}");
         let mut file = File::create(&full_path)?;
         let mut downloaded: u64 = 0;
@@ -248,7 +251,6 @@ impl Api {
         drop(file);
 
         if !item.is_single() {
-            println!("Extracting zip");
             let file = File::open(&full_path)?;
             let reader = BufReader::new(file);
             let mut archive = zip::ZipArchive::new(reader)?;
@@ -258,7 +260,8 @@ impl Api {
         }
         // Cover folder downloading
 
-        pb.finish_with_message("Done");
+        pb.set_style(ProgressStyle::with_template("{msg}")?);
+        pb.finish_with_message(format!("(Done) {full_title}"));
 
         Ok(())
     }
