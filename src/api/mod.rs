@@ -7,6 +7,7 @@ use soup::prelude::*;
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::{BufReader, Write};
+use std::str;
 
 pub mod structs;
 use crate::api::structs::*;
