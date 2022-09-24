@@ -1,14 +1,12 @@
 mod api;
+mod cache;
 mod cookies;
 mod util;
 
 #[macro_use]
 extern crate simple_error;
 
-// use crate::api::structs::digital_item::DigitalItem;
-use indicatif::{ProgressBar, ProgressState, ProgressStyle};
-// use std::collections::HashMap;
-use std::fmt::Write;
+use indicatif::{ProgressBar, ProgressStyle};
 use std::fs;
 
 use clap::Parser;
@@ -73,21 +71,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bandcamp_cookies = cookies::get_bandcamp_cookies(Some("./cookies.json"))?;
     let cookie = cookies::cookies_to_string(&bandcamp_cookies);
     let api = api::Api::new(cookie);
+    // Make relative to user path
+    let cache = cache::Cache::new(String::from("./test/bandcamp-collection-downloader.cache"));
 
     let api::BandcampPage {
         download_urls,
         page_name: _,
     } = api.get_download_urls("ovyerus").await?;
 
-    // let ids = &["p190890686", "p73637968", "r212538021", "p189790127"];
+    let ids = &["p190890686", "p73637968", "r212538021", "p189790127"].map(String::from);
 
     let style =
         ProgressStyle::with_template("{bar:10} ({bytes}/{total_bytes}) {wide_msg}").unwrap();
     let audio_format = "mp3-320";
 
-    // Artificial limit for testing.
-    for (id, url) in download_urls.iter().take(5) {
-        let item = skip_err!(api.get_digital_item(&url).await);
+    let cache_content = cache.content()?;
+    let items = download_urls
+        .iter()
+        .filter(|&(x, _)| !cache_content.contains(x))
+        // Artificial limit for testing.
+        .filter(|&(x, _)| ids.contains(x));
+
+    println!("Trying to download {} releases", items.clone().count());
+
+    for (id, url) in items {
+        let item = match api.get_digital_item(&url).await {
+            Ok(Some(item)) => item,
+            Ok(None) => {
+                // warn that item doesnt exist
+                skip_err!(cache.add(id, "UNKNOWN"));
+                continue;
+            }
+            Err(_) => continue,
+        };
+
         println!(
             "Trying {id}, {} - {} ({:?})",
             item.title,
@@ -103,6 +120,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         skip_err!(fs::create_dir_all(&path));
 
         skip_err!(api.download_item(&item, &path, audio_format, &pb).await);
+
+        if !cache.content().unwrap().contains(id) {
+            skip_err!(cache.add(
+                id,
+                &format!(
+                    "{} ({}) by {}",
+                    item.title,
+                    item.release_year(),
+                    item.artist
+                )
+            ));
+        }
     }
 
     println!("Finished!");

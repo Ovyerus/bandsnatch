@@ -153,8 +153,7 @@ impl Api {
         Ok(collection)
     }
 
-    // TODO: cache on API object?
-    pub async fn get_digital_item(&self, url: &str) -> Result<DigitalItem, Box<dyn Error>> {
+    pub async fn get_digital_item(&self, url: &str) -> Result<Option<DigitalItem>, Box<dyn Error>> {
         let res = self.get(&url).send().await?.text().await?;
         let soup = Soup::new(&res);
 
@@ -165,7 +164,7 @@ impl Api {
             .get("data-blob")
             .unwrap();
         let ParsedItemsData { digital_items } = serde_json::from_str(&download_page_blob).unwrap();
-        let item = digital_items.first().cloned().unwrap();
+        let item = digital_items.first().cloned();
 
         Ok(item)
     }
@@ -210,11 +209,13 @@ impl Api {
         let res = self.get(download_url).send().await?;
 
         let disposition = res.headers().get(CONTENT_DISPOSITION).unwrap();
-        // What should the default be?
+        // `HeaderValue::to_str` only handles valid ASCII bytes, and Bandcamp
+        // chooses to put Unicode into the content-disposition for some reason,
+        // so need to handle ourselves.
+        let content = str::from_utf8(disposition.as_bytes())?;
         // Should probably use a thing to properly parse the content of content disposition.
         let filename = slice_string(
-            disposition
-                .to_str()?
+            content
                 .split("; ")
                 .find(|x| x.starts_with("filename="))
                 .unwrap(),

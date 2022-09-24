@@ -52,15 +52,18 @@ impl DigitalItem {
         self.download_type == "t" || self.download_type_str == "track" || self.item_type == "track"
     }
 
-    pub fn destination_path(&self, root: &str) -> String {
-        let year = match self.package_release_date {
+    pub fn release_year(&self) -> String {
+        match self.package_release_date {
             Some(d) => d.year().to_string(),
             None => String::from("0000"),
-        };
+        }
+    }
+
+    pub fn destination_path(&self, root: &str) -> String {
         // TODO: append year
         Path::new(root)
             .join(&self.artist)
-            .join(&format!("{} ({year})", self.title))
+            .join(&format!("{} ({})", self.title, self.release_year()))
             .to_str()
             .unwrap()
             .to_owned()
