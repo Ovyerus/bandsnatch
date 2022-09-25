@@ -4,9 +4,11 @@ mod cookies;
 mod util;
 
 #[macro_use]
+extern crate log;
+#[macro_use]
 extern crate simple_error;
 
-use indicatif::{ProgressBar, ProgressStyle};
+use env_logger::{Env, DEFAULT_FILTER_ENV};
 use std::fs;
 
 use clap::Parser;
@@ -50,6 +52,23 @@ struct Args {
     #[clap(short = 'f', long = "format", validator = validate_audio_format)]
     audio_format: String,
 
+    // TODO: make this auto load cookies.json or cookies.txt in current
+    // directory if found, or fallback to extracting from Firefox.
+    #[clap(short, long, value_name = "COOKIES_FILE")]
+    cookies: String,
+
+    /// Perform a trial run without changing anything on the filesystem.
+    #[clap(short = 'n', long = "dry-run", default_value_t = false)]
+    dry_run: bool,
+
+    /// Whether the program should ignore any cache files found.
+    #[clap(short, long, default_value_t = false)]
+    force: bool,
+
+    /// The amount of parallel jobs (threads) to use.
+    #[clap(short, long, default_value_t = 4)]
+    jobs: u8,
+
     /// The folder to extract downloaded releases to.
     #[clap(
         short,
@@ -58,16 +77,14 @@ struct Args {
         default_value = "./"
     )]
     output_folder: String,
-
-    /// The amount of parallel jobs (threads) to use.
-    #[clap(short, long, default_value_t = 4)]
-    jobs: u8,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // let args = Args::parse();
-    // println!("{:?}", args);
+    // TODO: custom format
+    let env = Env::default().filter_or(DEFAULT_FILTER_ENV, "bcdl=info");
+    env_logger::init_from_env(env);
+
     let bandcamp_cookies = cookies::get_bandcamp_cookies(Some("./cookies.json"))?;
     let cookie = cookies::cookies_to_string(&bandcamp_cookies);
     let api = api::Api::new(cookie);
@@ -99,6 +116,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(Some(item)) => item,
             Ok(None) => {
                 // warn that item doesnt exist
+                warn!("Could not find digital item for {id}");
                 skip_err!(cache.add(id, "UNKNOWN"));
                 continue;
             }

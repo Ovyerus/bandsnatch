@@ -15,6 +15,7 @@ use crate::util::slice_string;
 
 pub struct BandcampPage {
     pub download_urls: DownloadsMap,
+    // TODO: is this actually used anywhere?
     pub page_name: String,
 }
 
@@ -56,6 +57,7 @@ impl Api {
 
     /// Scrape a user's Bandcamp page to find download urls
     pub async fn get_download_urls(&self, name: &str) -> Result<BandcampPage, Box<dyn Error>> {
+        debug!("`get_download_urls` for Bandcamp page '{name}'");
         let body = self.get(&Api::bc_path(name)).send().await?.text().await?;
         let soup = Soup::new(&body);
 
@@ -68,6 +70,7 @@ impl Api {
             .expect("Failed to extract data from element on collection page.");
         let fanpage_data: ParsedFanpageData = serde_json::from_str(&data_blob)
             .expect("Failed to deserialise collection page data blob.");
+        debug!("Successfully fetched Bandcamp page, and found + deserialised data blob ");
 
         match fanpage_data.fan_data.is_own_page {
             Some(true) => (),
@@ -85,11 +88,16 @@ impl Api {
 
         let skip_hidden_items = true;
         if skip_hidden_items {
+            debug!("Skipping hidden collection items");
             // TODO: filter `collection` to remove items that have their value containing a `sale_item_id` from `fanpage_data.item_cache.hidden`
             // collection.iter().filter(|&(k, v)| !fanpage_data.item_cache.hidden.contains_key(k))
         }
 
         if fanpage_data.collection_data.item_count > fanpage_data.collection_data.batch_size {
+            debug!(
+                "Too many in `collection_data`, so we need to paginate ({} total)",
+                fanpage_data.collection_data.item_count
+            );
             let rest = self
                 .get_rest_downloads_in_collection(&fanpage_data, "collection_items")
                 .await?;
@@ -99,6 +107,10 @@ impl Api {
         if !skip_hidden_items
             && (fanpage_data.hidden_data.item_count > fanpage_data.hidden_data.batch_size)
         {
+            debug!(
+                "Too many in `hidden_data`, and we're told not to skip, so we need to paginate ({} total)",
+                fanpage_data.hidden_data.item_count
+            );
             let rest = self
                 .get_rest_downloads_in_collection(&fanpage_data, "hidden_items")
                 .await?;
@@ -107,6 +119,7 @@ impl Api {
 
         let title = soup.tag("title").find().unwrap().text();
 
+        debug!("Successfully retrieved all download URLs");
         Ok(BandcampPage {
             page_name: title,
             download_urls: collection,
@@ -119,6 +132,7 @@ impl Api {
         data: &ParsedFanpageData,
         collection_name: &str,
     ) -> Result<DownloadsMap, Box<dyn Error>> {
+        debug!("Paginating results for {collection_name}");
         let collection_data = match collection_name {
             "collection_items" => &data.collection_data,
             "hidden_items" => &data.hidden_data,
@@ -130,6 +144,7 @@ impl Api {
         let mut collection = DownloadsMap::new();
 
         while more_available {
+            trace!("More items to collect, looping...");
             // retries
             let body = PostCollectionBody {
                 fan_id: &data.fan_data.fan_id,
@@ -145,15 +160,18 @@ impl Api {
                 .json::<ParsedCollectionItems>()
                 .await?;
 
+            trace!("Collected {} items", body.redownload_urls.clone().len());
             collection.extend(body.redownload_urls);
             more_available = body.more_available;
             last_token = body.last_token;
         }
 
+        debug!("Finished paginating results for {collection_name}");
         Ok(collection)
     }
 
     pub async fn get_digital_item(&self, url: &str) -> Result<Option<DigitalItem>, Box<dyn Error>> {
+        debug!("Retrieving digital item information for {url}");
         let res = self.get(&url).send().await?.text().await?;
         let soup = Soup::new(&res);
 
@@ -205,6 +223,7 @@ impl Api {
         //     .retrieve_real_download_url(item, audio_format)
         //     .await
         //     .expect("Failed to retrieve item download URL");
+        // debug!("Downloading {}", item.);
         let download_url = &item.downloads.get(audio_format).unwrap().url;
         let res = self.get(download_url).send().await?;
 
@@ -222,6 +241,7 @@ impl Api {
             9,
         )
         .trim_matches('"');
+        debug!("Downloading as `{filename}` to `{path}`");
 
         let total_size = res.content_length().unwrap();
         let full_title = format!("{} - {}", item.title, item.artist);
@@ -235,6 +255,7 @@ impl Api {
         let mut file = File::create(&full_path)?;
         let mut downloaded: u64 = 0;
         let mut stream = res.bytes_stream();
+        debug!("Starting download");
 
         while let Some(item) = stream.next().await {
             // TODO: Handle better
@@ -246,24 +267,24 @@ impl Api {
             pb.set_position(new)
         }
 
-        // TODO: see if we can have a interim buffer for the downloaded data,
-        // and write directly to file if it's a single, or extract to the FS
-        // without a intermediate file. (Is this a better idea? could possibly
-        // fuck memory on large releases though).
+        // Close downloaded file.
         drop(file);
 
         if !item.is_single() {
+            debug!("Unzipping album");
             let file = File::open(&full_path)?;
             let reader = BufReader::new(file);
             let mut archive = zip::ZipArchive::new(reader)?;
 
             archive.extract(path)?;
             fs::remove_file(&full_path)?;
+            debug!("Unzipped and removed original archive");
         }
         // Cover folder downloading
 
         pb.set_style(ProgressStyle::with_template("{msg}")?);
         pb.finish_with_message(format!("(Done) {full_title}"));
+        debug!("Finished downloading");
 
         Ok(())
     }
