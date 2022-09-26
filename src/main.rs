@@ -9,7 +9,9 @@ extern crate log;
 extern crate simple_error;
 
 use env_logger::{Env, DEFAULT_FILTER_ENV};
-use std::fs;
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
+use std::{fs, sync::Arc};
+use tokio::task::JoinHandle;
 
 use clap::Parser;
 
@@ -37,7 +39,7 @@ macro_rules! skip_err {
         match $res {
             Ok(val) => val,
             Err(e) => {
-                println!("An error: {}; skipped.", e);
+                warn!("An error: {}; skipped.", e);
                 continue;
             }
         }
@@ -87,70 +89,89 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let bandcamp_cookies = cookies::get_bandcamp_cookies(Some("./cookies.json"))?;
     let cookie = cookies::cookies_to_string(&bandcamp_cookies);
-    let api = api::Api::new(cookie);
+    let api = Arc::new(api::Api::new(cookie));
     // Make relative to user path
-    let cache = cache::Cache::new(String::from("./test/bandcamp-collection-downloader.cache"));
+    let cache = Arc::new(cache::Cache::new(String::from(
+        "./test/bandcamp-collection-downloader.cache",
+    )));
 
-    let api::BandcampPage {
-        download_urls,
-        page_name: _,
-    } = api.get_download_urls("ovyerus").await?;
-
-    let ids = &["p190890686", "p73637968", "r212538021", "p189790127"].map(String::from);
-
-    let style =
-        ProgressStyle::with_template("{bar:10} ({bytes}/{total_bytes}) {wide_msg}").unwrap();
+    // let ids = &["p190890686", "p73637968", "r212538021", "p189790127"].map(String::from);
     let audio_format = "mp3-320";
-
     let cache_content = cache.content()?;
+
+    let download_urls = api.get_download_urls("ovyerus").await?.download_urls;
+
     let items = download_urls
-        .iter()
-        .filter(|&(x, _)| !cache_content.contains(x))
+        .into_iter()
+        .filter(|(x, _)| !cache_content.contains(x))
         // Artificial limit for testing.
-        .filter(|&(x, _)| ids.contains(x));
+        .take(10)
+        // .filter(|(x, _)| ids.contains(x))
+        .collect::<Vec<_>>();
+    println!("Trying to download {} releases", items.len());
 
-    println!("Trying to download {} releases", items.clone().count());
+    let jobs = 4;
+    let num_chunks = (items.len() as f32 / 4 as f32).ceil() as usize;
+    let chunks = Arc::new(items.chunks(num_chunks).collect::<Vec<_>>());
 
-    for (id, url) in items {
-        let item = match api.get_digital_item(&url).await {
-            Ok(Some(item)) => item,
-            Ok(None) => {
-                // warn that item doesnt exist
-                warn!("Could not find digital item for {id}");
-                skip_err!(cache.add(id, "UNKNOWN"));
-                continue;
-            }
-            Err(_) => continue,
-        };
+    let m = Arc::new(MultiProgress::new());
 
-        println!(
-            "Trying {id}, {} - {} ({:?})",
-            item.title,
-            item.artist,
-            item.is_single()
-        );
+    tokio_scoped::scope(|scope| {
+        for i in 0..jobs {
+            let queue = chunks[i.clone() as usize].clone();
 
-        // TODO: set up a MultiProgress & assign bars to it, when threading.
-        let pb = ProgressBar::new(0);
-        pb.set_style(style.clone());
+            let api = api.clone();
+            let cache = cache.clone();
+            let m = m.clone();
 
-        let path = item.destination_path("./test");
-        skip_err!(fs::create_dir_all(&path));
+            scope.spawn(async move {
+                for (id, url) in queue {
+                    let item = match api.get_digital_item(&url).await {
+                        Ok(Some(item)) => item,
+                        Ok(None) => {
+                            // warn that item doesnt exist
+                            warn!("Could not find digital item for {id}");
+                            skip_err!(cache.add(id, "UNKNOWN"));
+                            continue;
+                        }
+                        Err(_) => continue,
+                    };
 
-        skip_err!(api.download_item(&item, &path, audio_format, &pb).await);
+                    println!(
+                        "Trying {id}, {} - {} ({:?})",
+                        item.title,
+                        item.artist,
+                        item.is_single()
+                    );
 
-        if !cache.content().unwrap().contains(id) {
-            skip_err!(cache.add(
-                id,
-                &format!(
-                    "{} ({}) by {}",
-                    item.title,
-                    item.release_year(),
-                    item.artist
-                )
-            ));
+                    // TODO: set up a MultiProgress & assign bars to it, when threading.
+                    let pb = m.add(ProgressBar::new(0));
+                    // Figure out if I can store this in an Arc & clone it.
+                    pb.set_style(
+                        ProgressStyle::with_template("{bar:10} ({bytes}/{total_bytes}) {wide_msg}")
+                            .unwrap(),
+                    );
+
+                    let path = item.destination_path("./test");
+                    skip_err!(fs::create_dir_all(&path));
+
+                    skip_err!(api.download_item(&item, &path, audio_format, &pb).await);
+
+                    if !cache.content().unwrap().contains(id) {
+                        skip_err!(cache.add(
+                            id,
+                            &format!(
+                                "{} ({}) by {}",
+                                item.title,
+                                item.release_year(),
+                                item.artist
+                            )
+                        ));
+                    }
+                }
+            });
         }
-    }
+    });
 
     println!("Finished!");
 
