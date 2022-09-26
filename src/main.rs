@@ -10,8 +10,8 @@ extern crate simple_error;
 
 use env_logger::{Env, DEFAULT_FILTER_ENV};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use std::{fs, sync::Arc};
-use tokio::task::JoinHandle;
+use std::sync::Arc;
+use tokio::fs;
 
 use clap::Parser;
 
@@ -105,33 +105,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .into_iter()
         .filter(|(x, _)| !cache_content.contains(x))
         // Artificial limit for testing.
-        .take(10)
+        .take(5)
         // .filter(|(x, _)| ids.contains(x))
         .collect::<Vec<_>>();
     println!("Trying to download {} releases", items.len());
 
-    let jobs = 4;
-    let num_chunks = (items.len() as f32 / 4 as f32).ceil() as usize;
-    let chunks = Arc::new(items.chunks(num_chunks).collect::<Vec<_>>());
+    let jobs = 2;
+    let queue = util::WorkQueue::from_vec(items);
 
     let m = Arc::new(MultiProgress::new());
 
     tokio_scoped::scope(|scope| {
         for i in 0..jobs {
-            let queue = chunks[i.clone() as usize].clone();
-
             let api = api.clone();
             let cache = cache.clone();
             let m = m.clone();
+            let queue = queue.clone();
 
+            // somehow re-create thread if it panics
             scope.spawn(async move {
-                for (id, url) in queue {
+                while let Some((id, url)) = queue.get_work() {
+                    println!("thread {i} taking {id}");
                     let item = match api.get_digital_item(&url).await {
                         Ok(Some(item)) => item,
                         Ok(None) => {
                             // warn that item doesnt exist
                             warn!("Could not find digital item for {id}");
-                            skip_err!(cache.add(id, "UNKNOWN"));
+                            skip_err!(cache.add(&id, "UNKNOWN"));
                             continue;
                         }
                         Err(_) => continue,
@@ -153,13 +153,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     );
 
                     let path = item.destination_path("./test");
-                    skip_err!(fs::create_dir_all(&path));
+                    skip_err!(fs::create_dir_all(&path).await);
 
                     skip_err!(api.download_item(&item, &path, audio_format, &pb).await);
 
-                    if !cache.content().unwrap().contains(id) {
+                    if !cache.content().unwrap().contains(&id) {
                         skip_err!(cache.add(
-                            id,
+                            &id,
                             &format!(
                                 "{} ({}) by {}",
                                 item.title,

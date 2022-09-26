@@ -5,9 +5,12 @@ use reqwest::{Client, RequestBuilder};
 use serde::Serialize;
 use soup::prelude::*;
 use std::error::Error;
-use std::fs::{self, File};
-use std::io::{BufReader, Write};
+use std::io::BufReader;
 use std::str;
+use tokio::{
+    fs::{self, File},
+    io::AsyncWriteExt,
+};
 
 pub mod structs;
 use crate::api::structs::*;
@@ -32,7 +35,7 @@ pub struct Api {
 }
 
 impl Api {
-    pub fn new(cookies: String) -> Api {
+    pub fn new(cookies: String) -> Self {
         // Cookie jar doesn't work properly for some reason, I'm probably doing
         // something wrong there.
         let mut headers = HeaderMap::new();
@@ -40,7 +43,7 @@ impl Api {
 
         let client = Client::builder().default_headers(headers).build().unwrap();
 
-        Api { client }
+        Self { client }
     }
 
     fn bc_path(path: &str) -> String {
@@ -58,7 +61,7 @@ impl Api {
     /// Scrape a user's Bandcamp page to find download urls
     pub async fn get_download_urls(&self, name: &str) -> Result<BandcampPage, Box<dyn Error>> {
         debug!("`get_download_urls` for Bandcamp page '{name}'");
-        let body = self.get(&Api::bc_path(name)).send().await?.text().await?;
+        let body = self.get(&Self::bc_path(name)).send().await?.text().await?;
         let soup = Soup::new(&body);
 
         let data_el = soup
@@ -151,7 +154,7 @@ impl Api {
                 older_than_token: &last_token,
             };
             let body = self
-                .post(&Api::bc_path(&format!(
+                .post(&Self::bc_path(&format!(
                     "api/fancollection/1/{collection_name}"
                 )))
                 .json(&body)
@@ -252,7 +255,7 @@ impl Api {
         // TODO: tokio IO for threading?
         // TODO: drop file with `.part` extension instead, while downloading, and then rename when finished.
         let full_path = format!("{path}/{filename}");
-        let mut file = File::create(&full_path)?;
+        let mut file = File::create(&full_path).await?;
         let mut downloaded: u64 = 0;
         let mut stream = res.bytes_stream();
         debug!("Starting download");
@@ -260,7 +263,7 @@ impl Api {
         while let Some(item) = stream.next().await {
             // TODO: Handle better
             let chunk = item?;
-            file.write_all(&chunk)?;
+            file.write_all(&chunk).await?;
 
             let new = std::cmp::min(downloaded + (chunk.len() as u64), total_size);
             downloaded = new;
@@ -272,12 +275,13 @@ impl Api {
 
         if !item.is_single() {
             debug!("Unzipping album");
-            let file = File::open(&full_path)?;
+            // TODO: async unzipping?
+            let file = File::open(&full_path).await?.into_std().await;
             let reader = BufReader::new(file);
             let mut archive = zip::ZipArchive::new(reader)?;
 
             archive.extract(path)?;
-            fs::remove_file(&full_path)?;
+            fs::remove_file(&full_path).await?;
             debug!("Unzipped and removed original archive");
         }
         // Cover folder downloading

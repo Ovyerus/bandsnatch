@@ -23,6 +23,7 @@ where
 #[derive(Clone, Deserialize, Debug)]
 pub struct DigitalItem {
     pub downloads: HashMap<String, DigitalItemDownload>,
+    /// Breaks when doesnt exist for some reason
     #[serde(deserialize_with = "parse_bc_date_str")]
     pub package_release_date: Option<DateTime<Utc>>,
     pub title: String,
