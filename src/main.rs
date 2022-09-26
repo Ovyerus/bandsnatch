@@ -125,7 +125,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // somehow re-create thread if it panics
             scope.spawn(async move {
                 while let Some((id, url)) = queue.get_work() {
-                    println!("thread {i} taking {id}");
+                    m.println(format!("thread {i} taking {id}")).unwrap();
                     let item = match api.get_digital_item(&url).await {
                         Ok(Some(item)) => item,
                         Ok(None) => {
@@ -137,12 +137,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         Err(_) => continue,
                     };
 
-                    println!(
+                    m.println(format!(
                         "Trying {id}, {} - {} ({:?})",
                         item.title,
                         item.artist,
-                        item.is_single()
-                    );
+                        item.is_single(),
+                    ))
+                    .unwrap();
 
                     // TODO: set up a MultiProgress & assign bars to it, when threading.
                     let pb = m.add(ProgressBar::new(0));
@@ -155,7 +156,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     let path = item.destination_path("./test");
                     skip_err!(fs::create_dir_all(&path).await);
 
-                    skip_err!(api.download_item(&item, &path, audio_format, &pb).await);
+                    skip_err!(api.download_item(&item, &path, audio_format, &m).await);
 
                     if !cache.content().unwrap().contains(&id) {
                         skip_err!(cache.add(

@@ -220,7 +220,8 @@ impl Api {
         item: &DigitalItem,
         path: &str,
         audio_format: &str,
-        pb: &indicatif::ProgressBar,
+        m: &indicatif::MultiProgress,
+        // pb: &indicatif::ProgressBar,
     ) -> Result<(), Box<dyn Error>> {
         // let download_url = self
         //     .retrieve_real_download_url(item, audio_format)
@@ -229,6 +230,16 @@ impl Api {
         // debug!("Downloading {}", item.);
         let download_url = &item.downloads.get(audio_format).unwrap().url;
         let res = self.get(download_url).send().await?;
+        let len = res.content_length().unwrap();
+        let full_title = format!("{} - {}", item.title, item.artist);
+        let pb = m.add(
+            indicatif::ProgressBar::new(len)
+                .with_message(full_title.clone())
+                .with_style(
+                    ProgressStyle::with_template("{bar:10} ({bytes}/{total_bytes}) {wide_msg}")
+                        .unwrap(),
+                ),
+        );
 
         let disposition = res.headers().get(CONTENT_DISPOSITION).unwrap();
         // `HeaderValue::to_str` only handles valid ASCII bytes, and Bandcamp
@@ -246,13 +257,6 @@ impl Api {
         .trim_matches('"');
         debug!("Downloading as `{filename}` to `{path}`");
 
-        let total_size = res.content_length().unwrap();
-        let full_title = format!("{} - {}", item.title, item.artist);
-
-        pb.set_length(total_size);
-        pb.set_message(full_title.clone());
-
-        // TODO: tokio IO for threading?
         // TODO: drop file with `.part` extension instead, while downloading, and then rename when finished.
         let full_path = format!("{path}/{filename}");
         let mut file = File::create(&full_path).await?;
@@ -265,7 +269,7 @@ impl Api {
             let chunk = item?;
             file.write_all(&chunk).await?;
 
-            let new = std::cmp::min(downloaded + (chunk.len() as u64), total_size);
+            let new = std::cmp::min(downloaded + (chunk.len() as u64), len);
             downloaded = new;
             pb.set_position(new)
         }
@@ -286,8 +290,8 @@ impl Api {
         }
         // Cover folder downloading
 
-        pb.set_style(ProgressStyle::with_template("{msg}")?);
-        pb.finish_with_message(format!("(Done) {full_title}"));
+        pb.finish_and_clear();
+        m.println(format!("(Done) {full_title}"))?;
         debug!("Finished downloading");
 
         Ok(())
