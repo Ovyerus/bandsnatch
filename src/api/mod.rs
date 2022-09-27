@@ -230,6 +230,7 @@ impl Api {
         // debug!("Downloading {}", item.);
         let download_url = &item.downloads.get(audio_format).unwrap().url;
         let res = self.get(download_url).send().await?;
+
         let len = res.content_length().unwrap();
         let full_title = format!("{} - {}", item.title, item.artist);
         let pb = m.add(
@@ -255,14 +256,14 @@ impl Api {
             9,
         )
         .trim_matches('"');
-        debug!("Downloading as `{filename}` to `{path}`");
+        m.suspend(|| debug!("Downloading as `{filename}` to `{path}`"));
 
         // TODO: drop file with `.part` extension instead, while downloading, and then rename when finished.
         let full_path = format!("{path}/{filename}");
         let mut file = File::create(&full_path).await?;
         let mut downloaded: u64 = 0;
         let mut stream = res.bytes_stream();
-        debug!("Starting download");
+        m.suspend(|| debug!("Starting download"));
 
         while let Some(item) = stream.next().await {
             // TODO: Handle better
@@ -278,7 +279,7 @@ impl Api {
         drop(file);
 
         if !item.is_single() {
-            debug!("Unzipping album");
+            m.suspend(|| debug!("Unzipping album"));
             // TODO: async unzipping?
             let file = File::open(&full_path).await?.into_std().await;
             let reader = BufReader::new(file);
@@ -286,13 +287,12 @@ impl Api {
 
             archive.extract(path)?;
             fs::remove_file(&full_path).await?;
-            debug!("Unzipped and removed original archive");
+            m.suspend(|| debug!("Unzipped and removed original archive"));
         }
         // Cover folder downloading
 
         pb.finish_and_clear();
         m.println(format!("(Done) {full_title}"))?;
-        debug!("Finished downloading");
 
         Ok(())
     }
