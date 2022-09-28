@@ -60,9 +60,8 @@ impl DigitalItem {
         }
     }
 
-    pub fn destination_path(&self, root: &str) -> String {
-        // TODO: append year
-        Path::new(root)
+    pub fn destination_path<P: AsRef<Path>>(&self, root: P) -> String {
+        root.as_ref()
             .join(&self.artist)
             .join(&format!("{} ({})", self.title, self.release_year()))
             .to_str()

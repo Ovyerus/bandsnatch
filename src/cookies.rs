@@ -56,8 +56,10 @@ pub fn get_bandcamp_cookies(path: Option<&str>) -> Result<HashMap<String, String
         return Ok(cookies);
     }
 
-    // TODO: fallback to environment variable if available, or Firefox cookies.
-    Err(String::from("Failed to get cookies"))
+    // TODO: fallback to Firefox cookies.
+    get_bandcamp_cookies(Some("./cookies.json"))
+        .or_else(|_| get_bandcamp_cookies(Some("./cookies.txt")))
+        .or(Err(String::from("Failed to get cookies")))
 }
 
 pub fn cookies_to_string(cookies: &HashMap<String, String>) -> String {

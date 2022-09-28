@@ -6,6 +6,7 @@ use serde::Serialize;
 use soup::prelude::*;
 use std::error::Error;
 use std::io::BufReader;
+use std::path::Path;
 use std::str;
 use tokio::{
     fs::{self, File},
@@ -258,8 +259,9 @@ impl Api {
         .trim_matches('"');
         m.suspend(|| debug!("Downloading as `{filename}` to `{path}`"));
 
-        // TODO: drop file with `.part` extension instead, while downloading, and then rename when finished.
-        let full_path = format!("{path}/{filename}");
+        // TODO: drop file with `.part` extension instead, while downloading, and then rename when finished?.
+
+        let full_path = Path::new(path).join(filename);
         let mut file = File::create(&full_path).await?;
         let mut downloaded: u64 = 0;
         let mut stream = res.bytes_stream();
@@ -289,7 +291,7 @@ impl Api {
             fs::remove_file(&full_path).await?;
             m.suspend(|| debug!("Unzipped and removed original archive"));
         }
-        // Cover folder downloading
+        // Cover folder downloading for singles
 
         pb.finish_and_clear();
         m.println(format!("(Done) {full_title}"))?;
