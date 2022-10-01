@@ -50,16 +50,16 @@ macro_rules! skip_err {
 }
 
 #[derive(Parser, Debug)]
-#[clap(name = "bcdl", version, about, long_about = None)]
+#[clap(name = "bandsnatch", version, about, long_about = None)]
 struct Args {
     /// The audio format to download the files in.
     /// Supported formats are: flac, wav, aac-hi, mp3-320, aiff-lossless, vorbis, mp3-v0, alac
-    #[clap(short = 'f', long = "format", validator = validate_audio_format, env = "BCDL_FORMAT")]
+    #[clap(short = 'f', long = "format", validator = validate_audio_format, env = "BS_FORMAT")]
     audio_format: String,
 
     // TODO: make this auto load cookies.json or cookies.txt in current
     // directory if found, or fallback to extracting from Firefox.
-    #[clap(short, long, value_name = "COOKIES_FILE", env = "BCDL_COOKIES")]
+    #[clap(short, long, value_name = "COOKIES_FILE", env = "BS_COOKIES")]
     cookies: Option<String>,
 
     /// Perform a trial run without changing anything on the filesystem.
@@ -67,15 +67,15 @@ struct Args {
     // dry_run: bool,
 
     /// Delete's any found cache file and does a from-scratch download run.
-    #[clap(short = 'F', long, env = "BCDL_FORCE")]
+    #[clap(short = 'F', long, env = "BS_FORCE")]
     force: bool,
 
     /// The amount of parallel jobs (threads) to use.
-    #[clap(short, long, default_value_t = 4, env = "BCDL_JOBS")]
+    #[clap(short, long, default_value_t = 4, env = "BS_JOBS")]
     jobs: u8,
 
     /// Maximum number of releases to download. Useful for testing.
-    #[clap(short = 'n', long, env = "BCDL_LIMIT")]
+    #[clap(short = 'n', long, env = "BS_LIMIT")]
     limit: Option<usize>,
 
     /// The folder to extract downloaded releases to.
@@ -84,12 +84,12 @@ struct Args {
         long = "output-folder",
         value_name = "FOLDER",
         default_value = "./",
-        env = "BCDL_OUTPUT_FOLDER"
+        env = "BS_OUTPUT_FOLDER"
     )]
     output_folder: String,
 
     /// Name of the user to download releases from (must be logged in through cookies).
-    #[clap(env = "BCDL_USER")]
+    #[clap(env = "BS_USER")]
     user: String,
 }
 
@@ -97,7 +97,7 @@ struct Args {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // TODO: custom format
     // TODO: make default based on what release target
-    let env = Env::default().filter_or(DEFAULT_FILTER_ENV, "bcdl=info");
+    let env = Env::default().filter_or(DEFAULT_FILTER_ENV, "bandsnatch=info");
     env_logger::init_from_env(env);
 
     let Args {
