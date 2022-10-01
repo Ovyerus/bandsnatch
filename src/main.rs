@@ -50,16 +50,16 @@ macro_rules! skip_err {
 }
 
 #[derive(Parser, Debug)]
-#[clap(name = "bcdl", version, long_about = None)]
+#[clap(name = "bcdl", version, about, long_about = None)]
 struct Args {
     /// The audio format to download the files in.
     /// Supported formats are: flac, wav, aac-hi, mp3-320, aiff-lossless, vorbis, mp3-v0, alac
-    #[clap(short = 'f', long = "format", validator = validate_audio_format, env)]
+    #[clap(short = 'f', long = "format", validator = validate_audio_format, env = "BCDL_FORMAT")]
     audio_format: String,
 
     // TODO: make this auto load cookies.json or cookies.txt in current
     // directory if found, or fallback to extracting from Firefox.
-    #[clap(short, long, value_name = "COOKIES_FILE", env)]
+    #[clap(short, long, value_name = "COOKIES_FILE", env = "BCDL_COOKIES")]
     cookies: Option<String>,
 
     /// Perform a trial run without changing anything on the filesystem.
@@ -67,15 +67,15 @@ struct Args {
     // dry_run: bool,
 
     /// Delete's any found cache file and does a from-scratch download run.
-    #[clap(short = 'F', long, env)]
+    #[clap(short = 'F', long, env = "BCDL_FORCE")]
     force: bool,
 
     /// The amount of parallel jobs (threads) to use.
-    #[clap(short, long, default_value_t = 4, env)]
+    #[clap(short, long, default_value_t = 4, env = "BCDL_JOBS")]
     jobs: u8,
 
     /// Maximum number of releases to download. Useful for testing.
-    #[clap(short = 'n', long)]
+    #[clap(short = 'n', long, env = "BCDL_LIMIT")]
     limit: Option<usize>,
 
     /// The folder to extract downloaded releases to.
@@ -84,7 +84,7 @@ struct Args {
         long = "output-folder",
         value_name = "FOLDER",
         default_value = "./",
-        env
+        env = "BCDL_OUTPUT_FOLDER"
     )]
     output_folder: String,
 
@@ -115,11 +115,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cookies_file = cookies;
     let root = Path::new(&output_folder);
     let limit = limit.or(Some(usize::MAX)).unwrap();
-    // fs::metadata(root).await?.is_dir();
-    match fs::metadata(root).await {
-        Ok(d) => d.is_dir(),
-        Err(_) => false,
-    };
+    // match fs::metadata(root).await {
+    //     Ok(d) => d.is_dir(),
+    //     Err(_) => false,
+    // };
     // TODO: ensure root is a directory
 
     let bandcamp_cookies = cookies::get_bandcamp_cookies(cookies_file.as_deref())?;
