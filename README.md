@@ -2,11 +2,22 @@
 
 > A CLI batch downloader for your Bandcamp collection.
 
+Bandsnatch is a Rust tool for downloading all of your Bandcamp purchases all at
+once in your desired format, and being able to be run multiple times when you
+buy new releases.
+
+This project is heavily inspired by Ezwen's
+[bandcamp-collection-downloader](https://framagit.org/Ezwen/bandcamp-collection-downloader),
+which I used myself before this, specifically existing to help me learn Rust,
+but also to add some improvements over it that I've wanted.
+
 ## State of the Project
 
 This tool is still currently a work in progress, so bugs and other weirdness may
 occur. If anything weird happens or something breaks, please open an issue about
-it with information and reproduction steps if possible.
+it with information and reproduction steps if possible. Specifically testing use
+of this with large collections would be very helpful to see if there's any areas
+that I need to improve in.
 
 If you're a developer poking around in the code, please note that this is my
 first proper project written using Rust, so code quality may be subpar,
@@ -31,7 +42,7 @@ bandsnatch 0.1.0
 A CLI batch downloader for your Bandcamp collection
 
 USAGE:
-    bandsnatch [OPTIONS] --format <AUDIO_FORMAT> <USER>
+    bs [OPTIONS] --format <AUDIO_FORMAT> <USER>
 
 ARGS:
     <USER>    Name of the user to download releases from (must be logged in through cookies)
@@ -42,9 +53,8 @@ OPTIONS:
     -f, --format <AUDIO_FORMAT>     The audio format to download the files in. Supported formats
                                     are: flac, wav, aac-hi, mp3-320, aiff-lossless, vorbis, mp3-v0,
                                     alac [env: BS_FORMAT=]
-    -F, --force                     Perform a trial run without changing anything on the filesystem.
-                                    Delete's any found cache file and does a from-scratch download
-                                    run [env: BS_FORCE=]
+    -F, --force                     Ignores any found cache file and instead does a from-scratch
+                                    download run [env: BS_FORCE=]
     -h, --help                      Print help information
     -j, --jobs <JOBS>               The amount of parallel jobs (threads) to use [env: BS_JOBS=]
                                     [default: 4]
@@ -66,7 +76,10 @@ folder you want.
 bs -c ./cookies.json -f flac -o ./Music ovyerus
 ```
 
-this
+This would download my entire music collection into a local "Music" folder, and
+also create a `bandcamp-collection-downloader.cache` in the same directory,
+which then gets read on future runs in order to skip items it has already
+retrieved.
 
 ## Authentication
 
@@ -85,10 +98,18 @@ bandsnatch will try to automatically load the cookies from there if possible.
 
 ## Installing
 
-Currently, you need to pull this repository and build the binary manually using
-`cargo build --release`.
+Currently, you need to build Bandsnatch from source in order to use it, so you
+will need the Rust toolchain installed in order to use it for the time being.
+Binary releases for different platforms are coming soon.
 
-Packages/releases with binaries coming soon.
+### Crate
+
+Simply run `cargo install bandsnatch`
+
+### From source
+
+Pull this repository and run `cargo build --release`, and look for the `bs` or
+`bandsnatch` binary in `./target/release/`.
 
 ## License
 

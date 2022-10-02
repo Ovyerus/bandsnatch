@@ -62,11 +62,10 @@ struct Args {
     #[clap(short, long, value_name = "COOKIES_FILE", env = "BS_COOKIES")]
     cookies: Option<String>,
 
-    /// Perform a trial run without changing anything on the filesystem.
+    // Perform a trial run without changing anything on the filesystem.
     // #[clap(short = 'n', long = "dry-run")]
     // dry_run: bool,
-
-    /// Delete's any found cache file and does a from-scratch download run.
+    /// Ignores any found cache file and instead does a from-scratch download run.
     #[clap(short = 'F', long, env = "BS_FORCE")]
     force: bool,
 
