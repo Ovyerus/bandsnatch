@@ -6,8 +6,9 @@ description = "A CLI batch downloader for your Bandcamp collection"
 authors = ["Michael Mitchell <michael@ovyerus.com>"]
 license = "MIT"
 readme = "README.md"
+homepage = "https://github.com/Ovyerus/bandsnatch"
 repository = "https://github.com/Ovyerus/bandsnatch"
-keywords = ["cli", "bandcamp", "music", "downloader", "bulk"]
+keywords = ["cli", "bandcamp", "music", "downloader", "bcdl"]
 categories = ["command-line-utilities", "multimedia::audio"]
 default-run = "bs"
 

@@ -86,6 +86,7 @@ struct Args {
         default_value = "./",
         env = "BS_OUTPUT_FOLDER"
     )]
+    // TODO: parse `~` with shellexpand or smth
     output_folder: String,
 
     /// Name of the user to download releases from (must be logged in through cookies).
