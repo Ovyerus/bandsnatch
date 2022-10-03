@@ -85,7 +85,6 @@ struct Args {
         default_value = "./",
         env = "BS_OUTPUT_FOLDER"
     )]
-    // TODO: parse `~` with shellexpand or smth
     output_folder: String,
 
     /// Name of the user to download releases from (must be logged in through cookies).
@@ -111,10 +110,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         output_folder,
         user,
     } = Args::parse();
-    // let cookies_file = cookies.or_else(util::find_valid_cookies_file);
-    let cookies_file = cookies;
-    let root = Path::new(&output_folder);
+
+    let cookies_file = cookies.and_then(|p| {
+        let expanded = shellexpand::tilde(&p);
+        Some(expanded.into_owned())
+    });
+    let root = shellexpand::tilde(&output_folder);
+    let root = Path::new(root.as_ref());
     let limit = limit.or(Some(usize::MAX)).unwrap();
+
     // match fs::metadata(root).await {
     //     Ok(d) => d.is_dir(),
     //     Err(_) => false,
