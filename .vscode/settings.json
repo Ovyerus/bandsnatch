@@ -1,3 +1,6 @@
 {
-  "editor.tabSize": 4
+  "editor.tabSize": 4,
+  "[yaml]": {
+    "editor.defaultFormatter": null
+  }
 }
