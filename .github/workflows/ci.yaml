@@ -1,15 +1,16 @@
 name: CI
 
-env:
-  CICD_INTERMEDIATES_DIR: "_cicd-intermediates"
-
 on:
   workflow_dispatch:
   pull_request:
   push:
     branches:
       - main
+    tags:
+      - v*
 
+# TODO: figure out OpenSSL issue so linux build can be moved out of the Docker
+# image so that we can use `Swatinem/rust-cache` across all of them.
 jobs:
   build-linux:
     runs-on: ubuntu-20.04
@@ -29,52 +30,117 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Pull Docker image
-        run: docker pull messense/rust-musl-cross:${{ matrix.arch }}-${{ matrix.libc }}
+        run:
+          docker pull messense/rust-musl-cross:${{ matrix.arch }}-${{
+          matrix.libc }}
       - name: Build in Docker
-        run: docker run --rm -i -v "$(pwd)":/home/rust/src messense/rust-musl-cross:${{ matrix.arch }}-${{ matrix.libc }} cargo build --release
+        run:
+          docker run --rm -i -v "$(pwd)":/home/rust/src
+          messense/rust-musl-cross:${{ matrix.arch }}-${{ matrix.libc }} cargo
+          build --release
       - name: Strip binary
-        run: docker run --rm -i -v "$(pwd)":/home/rust/src messense/rust-musl-cross:${{ matrix.arch }}-${{ matrix.libc }} musl-strip -s /home/rust/src/target/${{ matrix.arch }}-unknown-linux-${{ matrix.libc }}/release/bandsnatch
+        run:
+          docker run --rm -i -v "$(pwd)":/home/rust/src
+          messense/rust-musl-cross:${{ matrix.arch }}-${{ matrix.libc }}
+          musl-strip -s /home/rust/src/target/${{ matrix.arch
+          }}-unknown-linux-${{ matrix.libc }}/release/bandsnatch
       - uses: actions/upload-artifact@v2
         with:
           name: "bandsnatch-linux-${{ matrix.arch }}-${{ matrix.libc }}"
-          path: "target/${{ matrix.arch }}-unknown-linux-${{ matrix.libc }}/release/bandsnatch"
+          path:
+            "target/${{ matrix.arch }}-unknown-linux-${{ matrix.libc
+            }}/release/bandsnatch"
 
   build-macos:
     runs-on: macos-11
     strategy:
       matrix:
         target:
-          - x86_64-apple-darwin
-          - aarch64-apple-darwin
+          - x86_64
+          - aarch64
     steps:
       - uses: actions/checkout@v2
+
       - name: Install target
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
-          target: ${{ matrix.target }}
+          toolchain: stable-apple-darwin
+          target: ${{ matrix.target }}-apple-darwin
           override: true
           profile: minimal
+
       - name: Build
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --target ${{ matrix.target }}
+          args: --release --target ${{ matrix.target }}-apple-darwin
+
       - uses: actions/upload-artifact@v2
         with:
-          name: ${{ matrix.target }}
-          path: "target/${{ matrix.target }}/release/bandsnatch"
+          name: bandsnatch-macos-${{ matrix.target }}
+          path: "target/${{ matrix.target }}-apple-darwin/release/bandsnatch"
 
   build-windows:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v2
+
       - name: Build
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --target x86_64-pc-windows-msvc
+
       - uses: actions/upload-artifact@v2
         with:
           name: "bandsnatch-windows-x86_64-msvc"
           path: "target/x86_64-pc-windows-msvc/release/bandsnatch.exe"
+
+  # TODO: clippy lints & rustfmt
+
+  create-release:
+    runs-on: ubuntu-20.04
+    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+      - build-linux
+      - build-macos
+      - build-windows
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+
+      - name: Rename files
+        run: |
+          mkdir out && cd out
+
+          declare -a arr=(
+            "windows-x86_64-msvc"
+            "macos-x86_64"
+            "macos-aarch64"
+            "linux-x86_64-musl"
+            "linux-i686-musl"
+            "linux-armv7-musleabihf"
+            "linux-arm-musleabi"
+            "linux-arm-musleabihf"
+          )
+
+          for target in "${arr[@]}"
+          do
+            if [[ "$target" == *windows* ]]; then
+              src="../bandsnatch-$target/bandsnatch.exe"
+              filename="bandsnatch-$target.exe"
+            else
+              src="../bandsnatch-$target/bandsnatch"
+              filename="bandsnatch-$target"
+            fi
+
+            cp $src $filename
+            sha256sum "$filename" > "$filename.sha256"
+          done
+
+      - name: Create draft release
+        uses: softprops/action-gh-release@v1
+        with:
+          body: Update the description for the release!
+          draft: true
+          files: ./out/*
