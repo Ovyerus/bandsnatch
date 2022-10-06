@@ -10,19 +10,6 @@ homepage = "https://github.com/Ovyerus/bandsnatch"
 repository = "https://github.com/Ovyerus/bandsnatch"
 keywords = ["cli", "bandcamp", "music", "downloader", "bcdl"]
 categories = ["command-line-utilities", "multimedia::audio"]
-default-run = "bs"
-
-# TODO: create a shared `src/lib.rs` and then the named binaries in `src/bin`
-# with same contents instead
-# (https://github.com/rust-lang/cargo/issues/5930#issuecomment-449331569)
-# Or is there a better way for bin aliases?
-[[bin]]
-name = "bs"
-path = "src/main.rs"
-
-[[bin]]
-name = "bandsnatch"
-path = "src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -31,9 +31,6 @@ as it will try to automatically fetch cookies from a local `cookies.json` or
 from Firefox. But if this fails you can provide the `-c` option with a path to a
 cookies file to use.
 
-(NB: you can use `bs` instead of `bandsnatch` as the command name in most cases,
-makes it faster to type ;) )
-
 For more advanced usage, you can run `bandsnatch -h` to get output similar to
 the following.
 
@@ -73,7 +70,7 @@ folder you want.
 ### Exmaple
 
 ```
-bs -c ./cookies.json -f flac -o ./Music ovyerus
+bandsnatch -c ./cookies.json -f flac -o ./Music ovyerus
 ```
 
 This would download my entire music collection into a local "Music" folder, and
