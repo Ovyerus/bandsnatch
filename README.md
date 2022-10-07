@@ -39,7 +39,7 @@ bandsnatch 0.1.0
 A CLI batch downloader for your Bandcamp collection
 
 USAGE:
-    bs [OPTIONS] --format <AUDIO_FORMAT> <USER>
+    bandsnatch [OPTIONS] --format <AUDIO_FORMAT> <USER>
 
 ARGS:
     <USER>    Name of the user to download releases from (must be logged in through cookies)
@@ -64,8 +64,8 @@ OPTIONS:
 
 Besides these options, you can also use environment variables with the option
 name in `SCREAMING_SNAKE_CASE`, prefixed with `BS_`, so that if set up correctly
-you can just run `bs` and have it automatically download your collection to the
-folder you want.
+you can just run `bandsnatch` and have it automatically download your collection
+to the folder you want.
 
 ### Exmaple
 
@@ -95,17 +95,19 @@ bandsnatch will try to automatically load the cookies from there if possible.
 
 ## Installing
 
-Currently, you need to build Bandsnatch from source in order to use it, so you
-will need the Rust toolchain installed in order to use it for the time being.
-Binary releases for different platforms are coming soon.
+Binary builds of Bandsnatch are available on our
+[releases page](https://github.com/Ovyerus/bandsnatch/releases) for Windows, Mac
+(both ARM & Intel), and Linux (various architectures).
+
+Homebrew, Scoop, and possibly other packages will be coming at a later date.
 
 ### Crate
 
-Simply run `cargo install bandsnatch`
+`cargo install bandsnatch`
 
 ### From source
 
-Pull this repository and run `cargo build --release`, and look for the `bs` or
+Pull this repository and run `cargo build --release`, and look for the
 `bandsnatch` binary in `./target/release/`.
 
 ## License
