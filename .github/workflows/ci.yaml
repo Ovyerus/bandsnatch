@@ -69,6 +69,10 @@ jobs:
           override: true
           profile: minimal
 
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
       - name: Build
         uses: actions-rs/cargo@v1
         with:
@@ -84,6 +88,16 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v2
+
+      - name: Install target
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable-x86_64-pc-windows-msvc
+          target: x86_64-pc-windows-msvc
+          override: true
+          profile: minimal
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Build
         uses: actions-rs/cargo@v1
