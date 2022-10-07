@@ -119,11 +119,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root = Path::new(root.as_ref());
     let limit = limit.or(Some(usize::MAX)).unwrap();
 
-    // match fs::metadata(root).await {
-    //     Ok(d) => d.is_dir(),
-    //     Err(_) => false,
-    // };
-    // TODO: ensure root is a directory
+    let root_exists = match fs::metadata(root).await {
+        Ok(d) => Some(d.is_dir()),
+        Err(_) => None,
+    };
+
+    match root_exists {
+        Some(true) => (),
+        Some(false) => panic!("Cannot use `output-folder`, as it is not a folder. Please delete it and create as a directory, or try a different path."),
+        None => fs::create_dir_all(root).await?,
+    }
 
     let bandcamp_cookies = cookies::get_bandcamp_cookies(cookies_file.as_deref())?;
     let cookie = cookies::cookies_to_string(&bandcamp_cookies);
