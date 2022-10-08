@@ -12,7 +12,12 @@ and this project adheres to
 
 - Create output folder if it doesn't exist, and warn user if it's a file.
 
-# [0.1.0] - 2022-10-02
+### Fixed
+
+- Replace certain characters in the folder structure which may conflict with
+  what filesystems allow (e.g. `:`, `\`, `/`)
+
+## [0.1.0] - 2022-10-02
 
 Initial public release of Bandsnatch.
 

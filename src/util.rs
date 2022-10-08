@@ -1,7 +1,31 @@
+use phf::phf_map;
 use std::{
     collections::VecDeque,
     sync::{Arc, Mutex},
 };
+
+// From https://github.com/Ezwen/bandcamp-collection-downloader/blob/master/src/main/kotlin/bandcampcollectiondownloader/core/Constants.kt#L7
+static REPLACEMENT_CHARS: phf::Map<&'static str, &'static str> = phf_map! {
+    ":" => "꞉",
+    "/" => "／",
+    "\\" => "⧹",
+    "\"" => "＂",
+    "*" => "⋆",
+    "<" => "＜",
+    ">" => "＞",
+    "?" => "？",
+    "|" => "∣"
+};
+
+pub fn make_string_fs_safe(s: &str) -> String {
+    let mut str = s.to_string();
+
+    for (from, to) in REPLACEMENT_CHARS.entries() {
+        str = str.replace(from, to);
+    }
+
+    str.to_string()
+}
 
 pub fn slice_string(s: &str, amt: usize) -> &str {
     match s.char_indices().skip(amt).next() {
