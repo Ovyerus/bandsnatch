@@ -99,11 +99,16 @@ Binary builds of Bandsnatch are available on our
 [releases page](https://github.com/Ovyerus/bandsnatch/releases) for Windows, Mac
 (both ARM & Intel), and Linux (various architectures).
 
-Scoop and possibly other packages will be coming at a later date.
-
 ### Homebrew
 
 `brew install ovyerus/tap/bandsnatch`
+
+### Scoop
+
+```
+scoop bucket add ovyerus https://github.com/Ovyerus/bucket
+scoop install bandsnatch
+```
 
 ## AUR (unofficial)
 
