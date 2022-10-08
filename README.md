@@ -99,7 +99,23 @@ Binary builds of Bandsnatch are available on our
 [releases page](https://github.com/Ovyerus/bandsnatch/releases) for Windows, Mac
 (both ARM & Intel), and Linux (various architectures).
 
-Homebrew, Scoop, and possibly other packages will be coming at a later date.
+Scoop and possibly other packages will be coming at a later date.
+
+### Homebrew
+
+`brew install ovyerus/tap/bandsnatch`
+
+## AUR (unofficial)
+
+An unofficial AUR package is available from [wale](https://github.com/wale) at
+https://aur.archlinux.org/packages/bandsnatch. Either use your favourite AUR
+helper, or you can install it manually via the following:
+
+```
+git clone https://aur.archlinux.org/bandsnatch.git
+cd bandsnatch
+makepkg -si
+```
 
 ### Crate
 
