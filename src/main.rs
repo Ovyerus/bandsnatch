@@ -8,6 +8,7 @@ extern crate log;
 #[macro_use]
 extern crate simple_error;
 
+use clap::{builder::PossibleValuesParser, Parser};
 use env_logger::{Env, DEFAULT_FILTER_ENV};
 use indicatif::MultiProgress;
 use std::{
@@ -15,8 +16,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tokio::fs;
-
-use clap::Parser;
 
 const FORMATS: &'static [&'static str] = &[
     "flac",
@@ -28,14 +27,6 @@ const FORMATS: &'static [&'static str] = &[
     "mp3-v0",
     "alac",
 ];
-
-fn validate_audio_format(name: &str) -> Result<(), String> {
-    if !FORMATS.contains(&name) {
-        Err(String::from("format must be one of the following: flac, wav, aac-hi, mp3-320, aiff-lossless, vorbis, mp3-v0, alac"))
-    } else {
-        Ok(())
-    }
-}
 
 macro_rules! skip_err {
     ($res:expr) => {
@@ -53,8 +44,7 @@ macro_rules! skip_err {
 #[clap(name = "bandsnatch", version, about, long_about = None)]
 struct Args {
     /// The audio format to download the files in.
-    /// Supported formats are: flac, wav, aac-hi, mp3-320, aiff-lossless, vorbis, mp3-v0, alac
-    #[clap(short = 'f', long = "format", validator = validate_audio_format, env = "BS_FORMAT")]
+    #[clap(short = 'f', long = "format", value_parser = PossibleValuesParser::new(FORMATS), env = "BS_FORMAT")]
     audio_format: String,
 
     // TODO: make this auto load cookies.json or cookies.txt in current
@@ -126,7 +116,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match root_exists {
         Some(true) => (),
-        Some(false) => panic!("Cannot use `output-folder`, as it is not a folder. Please delete it and create as a directory, or try a different path."),
+        Some(false) => {
+            error!("Cannot use `output-folder`, as it is not a folder. Please delete it and create as a directory, or try a different path.");
+            std::process::exit(1);
+        }
         None => fs::create_dir_all(root).await?,
     }
 

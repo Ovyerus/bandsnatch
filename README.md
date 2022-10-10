@@ -35,31 +35,22 @@ For more advanced usage, you can run `bandsnatch -h` to get output similar to
 the following.
 
 ```
-bandsnatch 0.1.0
 A CLI batch downloader for your Bandcamp collection
 
-USAGE:
-    bandsnatch [OPTIONS] --format <AUDIO_FORMAT> <USER>
+Usage: bandsnatch [OPTIONS] --format <AUDIO_FORMAT> <USER>
 
-ARGS:
-    <USER>    Name of the user to download releases from (must be logged in through cookies)
-              [env: BS_USER=]
+Arguments:
+  <USER>  Name of the user to download releases from (must be logged in through cookies) [env: BS_USER=]
 
-OPTIONS:
-    -c, --cookies <COOKIES_FILE>    [env: BS_COOKIES=]
-    -f, --format <AUDIO_FORMAT>     The audio format to download the files in. Supported formats
-                                    are: flac, wav, aac-hi, mp3-320, aiff-lossless, vorbis, mp3-v0,
-                                    alac [env: BS_FORMAT=]
-    -F, --force                     Ignores any found cache file and instead does a from-scratch
-                                    download run [env: BS_FORCE=]
-    -h, --help                      Print help information
-    -j, --jobs <JOBS>               The amount of parallel jobs (threads) to use [env: BS_JOBS=]
-                                    [default: 4]
-    -n, --limit <LIMIT>             Maximum number of releases to download. Useful for testing [env:
-                                    BS_LIMIT=]
-    -o, --output-folder <FOLDER>    The folder to extract downloaded releases to [env:
-                                    BS_OUTPUT_FOLDER=] [default: ./]
-    -V, --version                   Print version information
+Options:
+  -f, --format <AUDIO_FORMAT>   The audio format to download the files in [env: BS_FORMAT=] [possible values: flac, wav, aac-hi, mp3-320, aiff-lossless, vorbis, mp3-v0, alac]
+  -c, --cookies <COOKIES_FILE>  [env: BS_COOKIES=]
+  -F, --force                   Ignores any found cache file and instead does a from-scratch download run [env: BS_FORCE=]
+  -j, --jobs <JOBS>             The amount of parallel jobs (threads) to use [env: BS_JOBS=] [default: 4]
+  -n, --limit <LIMIT>           Maximum number of releases to download. Useful for testing [env: BS_LIMIT=]
+  -o, --output-folder <FOLDER>  The folder to extract downloaded releases to [env: BS_OUTPUT_FOLDER=] [default: ./]
+  -h, --help                    Print help information
+  -V, --version                 Print version information
 ```
 
 Besides these options, you can also use environment variables with the option

@@ -17,6 +17,10 @@ and this project adheres to
 - Replace certain characters in the folder structure which may conflict with
   what filesystems allow (e.g. `:`, `\`, `/`)
 
+### Changed
+
+- Upgrade to `clap` 4.0.
+
 ## [0.1.0] - 2022-10-02
 
 Initial public release of Bandsnatch.
