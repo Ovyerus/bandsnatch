@@ -28,8 +28,8 @@ project in general I'd love to hear them.
 
 The most basic usage is along the lines of `bandsnatch -f <format> <username>`,
 as it will try to automatically fetch cookies from a local `cookies.json` or
-from Firefox. But if this fails you can provide the `-c` option with a path to a
-cookies file to use.
+from Firefox (TODO). But if this fails you can provide the `-c` option with a
+path to a cookies file to use.
 
 For more advanced usage, you can run `bandsnatch -h` to get output similar to
 the following.
@@ -82,7 +82,8 @@ to extract the cookies in the Netscape format, which Bandsnatch also supports.
 If you don't provide the `--cookies` option, Bandsnatch will attempt to
 automatically find a file named `cookies.json` or `cookies.txt` in the local
 directory and load it. Failing that, if you use Firefox on Windows or Linux,
-bandsnatch will try to automatically load the cookies from there if possible.
+bandsnatch will try to automatically load the cookies from there if possible
+(TODO).
 
 ## Installing
 
