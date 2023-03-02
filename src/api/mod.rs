@@ -176,7 +176,7 @@ impl Api {
 
     pub async fn get_digital_item(&self, url: &str) -> Result<Option<DigitalItem>, Box<dyn Error>> {
         debug!("Retrieving digital item information for {url}");
-        let res = self.get(&url).send().await?.text().await?;
+        let res = self.get(url).send().await?.text().await?;
         let soup = Soup::new(&res);
 
         let download_page_blob = soup

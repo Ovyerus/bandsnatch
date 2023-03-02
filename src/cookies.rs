@@ -13,7 +13,7 @@ struct RawCookie {
 
 /// Get hashmap of cookies from a `cookies.json` string.
 fn get_json_cookies(json: &str) -> HashMap<String, String> {
-    let raw = serde_json::from_str::<Vec<RawCookie>>(&json).unwrap();
+    let raw = serde_json::from_str::<Vec<RawCookie>>(json).unwrap();
     let mut map = HashMap::<String, String>::new();
     let cookie_iter = raw.iter();
 
@@ -45,7 +45,7 @@ fn get_text_cookies(content: &str) -> HashMap<String, String> {
 
 pub fn get_bandcamp_cookies(path: Option<&str>) -> Result<HashMap<String, String>, String> {
     if let Some(path) = path {
-        let data = fs::read_to_string(path).expect(&format!("Cannot read cookies file '{path}'"));
+        let data = fs::read_to_string(path).unwrap_or_else(|_| panic!("Cannot read cookies file '{path}'"));
         // TODO: need to return results from these functions
         let cookies = if path.ends_with(".json") {
             get_json_cookies(&data)

@@ -24,11 +24,11 @@ pub fn make_string_fs_safe(s: &str) -> String {
         str = str.replace(from, to);
     }
 
-    str.to_string()
+    str
 }
 
 pub fn slice_string(s: &str, amt: usize) -> &str {
-    match s.char_indices().skip(amt).next() {
+    match s.char_indices().nth(amt) {
         Some((pos, _)) => &s[pos..],
         None => "",
     }
