@@ -40,7 +40,7 @@ impl DigitalItem {
 
     pub fn release_year(&self) -> String {
         match &self.package_release_date {
-            Some(d) => match Utc.datetime_from_str(&d, FORMAT) {
+            Some(d) => match Utc.datetime_from_str(d, FORMAT) {
                 Ok(dt) => dt.year().to_string(),
                 Err(_) => String::from("0000"),
             },
@@ -51,7 +51,7 @@ impl DigitalItem {
     pub fn destination_path<P: AsRef<Path>>(&self, root: P) -> String {
         root.as_ref()
             .join(&self.artist)
-            .join(&format!(
+            .join(format!(
                 "{} ({})",
                 make_string_fs_safe(&self.title),
                 self.release_year()

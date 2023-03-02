@@ -22,7 +22,7 @@ impl<P: AsRef<Path>> Cache<P> {
         if let Ok(content) = fs::read_to_string(&self.path) {
             Ok(content
                 .lines()
-                .map(|x| x.split("|").next().unwrap().to_string())
+                .map(|x| x.split('|').next().unwrap().to_string())
                 .collect::<Vec<String>>())
         } else {
             Ok(vec![])
