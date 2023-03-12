@@ -13,7 +13,7 @@ pub struct DigitalItem {
     pub package_release_date: Option<String>,
     pub title: String,
     pub artist: String,
-    pub download_type: String,
+    pub download_type: Option<String>,
     pub download_type_str: String,
     pub item_type: String,
     #[serde(deserialize_with = "deserialize_string_from_number")]
@@ -35,7 +35,9 @@ impl DigitalItem {
     }
 
     pub fn is_single(&self) -> bool {
-        self.download_type == "t" || self.download_type_str == "track" || self.item_type == "track"
+        (self.download_type.is_some() && self.download_type.as_ref().unwrap() == "t")
+            || self.download_type_str == "track"
+            || self.item_type == "track"
     }
 
     pub fn release_year(&self) -> String {
