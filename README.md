@@ -59,7 +59,7 @@ name in `SCREAMING_SNAKE_CASE`, prefixed with `BS_`, so that if set up correctly
 you can just run `bandsnatch run` and have it automatically download your
 collection to the folder you want.
 
-### Exmaple
+### Example
 
 ```
 bandsnatch run -c ./cookies.json -f flac -o ./Music ovyerus
