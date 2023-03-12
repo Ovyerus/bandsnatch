@@ -15,6 +15,6 @@ pub struct Args {
     id: String,
 }
 
-pub async fn command(args: Args) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn command(_args: Args) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }

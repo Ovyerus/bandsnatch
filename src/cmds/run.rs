@@ -8,7 +8,7 @@ use tokio::fs;
 
 use crate::{api, cache, cookies, util};
 
-const FORMATS: &'static [&'static str] = &[
+const FORMATS: &[&str] = &[
     "flac",
     "wav",
     "aac-hi",
@@ -83,13 +83,13 @@ pub async fn command(
         user,
     }: Args,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let cookies_file = cookies.and_then(|p| {
+    let cookies_file = cookies.map(|p| {
         let expanded = shellexpand::tilde(&p);
-        Some(expanded.into_owned())
+        expanded.into_owned()
     });
     let root = shellexpand::tilde(&output_folder);
     let root = Path::new(root.as_ref());
-    let limit = limit.or(Some(usize::MAX)).unwrap();
+    let limit = limit.unwrap_or(usize::MAX);
 
     let root_exists = match fs::metadata(root).await {
         Ok(d) => Some(d.is_dir()),
