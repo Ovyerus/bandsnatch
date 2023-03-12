@@ -42,9 +42,14 @@ pub struct Args {
     #[arg(short, long, value_name = "COOKIES_FILE", env = "BS_COOKIES")]
     cookies: Option<String>,
 
-    // Return a list of all tracks to be downloaded, without actually downloading them.
-    // #[arg(short = 'n', long = "dry-run")]
-    // dry_run: bool,
+    /// Enables some extra debug output in certain scenarios.
+    #[arg(long, env = "BS_DEBUG")]
+    debug: bool,
+
+    /// Return a list of all tracks to be downloaded, without actually downloading them.
+    #[arg(short = 'd', long = "dry-run")]
+    dry_run: bool,
+
     /// Ignores any found cache file and instead does a from-scratch download run.
     #[arg(short = 'F', long, env = "BS_FORCE")]
     force: bool,
@@ -76,6 +81,8 @@ pub async fn command(
     Args {
         audio_format,
         cookies,
+        debug,
+        dry_run,
         force,
         jobs,
         limit,
@@ -123,10 +130,16 @@ pub async fn command(
             .take(limit)
             .collect::<Vec<_>>()
     };
-    println!("Trying to download {} releases", items.len());
+
+    if dry_run {
+        println!("Fetching information for {} found releases", items.len());
+    } else {
+        println!("Trying to download {} releases", items.len());
+    }
 
     let queue = util::WorkQueue::from_vec(items);
     let m = Arc::new(MultiProgress::new());
+    let dry_run_results = Arc::new(Mutex::new(Vec::<String>::new()));
 
     // TODO:  dry_run
 
@@ -137,6 +150,7 @@ pub async fn command(
             let m = m.clone();
             let queue = queue.clone();
             let audio_format = audio_format.clone();
+            let dry_run_results = dry_run_results.clone();
 
             // somehow re-create thread if it panics
             scope.spawn(async move {
@@ -144,7 +158,7 @@ pub async fn command(
                     m.suspend(|| debug!("thread {i} taking {id}"));
 
                     // skip_err!
-                    let item = match api.get_digital_item(&url).await {
+                    let item = match api.get_digital_item(&url, &debug).await {
                         Ok(Some(item)) => item,
                         Ok(None) => {
                             let cache = cache.lock().unwrap();
@@ -155,6 +169,16 @@ pub async fn command(
                         }
                         Err(_) => continue,
                     };
+
+                    if dry_run {
+                        let results_lock = dry_run_results.lock();
+                        if let Ok(mut results) = results_lock {
+                            results.push(format!("{id}, {} - {}", item.title, item.artist))
+                        } else {
+                            panic!("dry_run_results is poisoned!!")
+                        }
+                        continue;
+                    }
 
                     // TODO: intialise progressbar with this, and then pass that + m to download
                     m.println(format!(
@@ -188,6 +212,11 @@ pub async fn command(
             });
         }
     });
+
+    if dry_run {
+        println!("{}", dry_run_results.lock().unwrap().join("\n"));
+        return Ok(());
+    }
 
     println!("Finished!");
 

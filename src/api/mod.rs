@@ -174,7 +174,11 @@ impl Api {
         Ok(collection)
     }
 
-    pub async fn get_digital_item(&self, url: &str) -> Result<Option<DigitalItem>, Box<dyn Error>> {
+    pub async fn get_digital_item(
+        &self,
+        url: &str,
+        debug: &bool,
+    ) -> Result<Option<DigitalItem>, Box<dyn Error>> {
         debug!("Retrieving digital item information for {url}");
         let res = self.get(url).send().await?.text().await?;
         let soup = Soup::new(&res);
@@ -185,8 +189,23 @@ impl Api {
             .unwrap()
             .get("data-blob")
             .unwrap();
-        let ParsedItemsData { digital_items } = serde_json::from_str(&download_page_blob).unwrap();
-        let item = digital_items.first().cloned();
+
+        let item_result = std::panic::catch_unwind(|| {
+            serde_json::from_str::<ParsedItemsData>(&download_page_blob).unwrap()
+        });
+
+        if item_result.is_err() {
+            println!("Failed to get item info for {url}.");
+            if *debug {
+                println!("\n{download_page_blob}\n");
+            } else {
+                println!("Run with `--debug` to see the full JSON blob.\n")
+            }
+
+            bail!(format!("failed parsing {url}"))
+        }
+
+        let item = item_result.unwrap().digital_items.first().cloned();
 
         Ok(item)
     }
