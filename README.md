@@ -26,18 +26,18 @@ project in general I'd love to hear them.
 
 ## Usage
 
-The most basic usage is along the lines of `bandsnatch -f <format> <username>`,
-as it will try to automatically fetch cookies from a local `cookies.json` or
-from Firefox (TODO). But if this fails you can provide the `-c` option with a
-path to a cookies file to use.
+The most basic usage is along the lines of
+`bandsnatch run -f <format> <username>`, as it will try to automatically fetch
+cookies from a local `cookies.json` or from Firefox (TODO). But if this fails
+you can provide the `-c` option with a path to a cookies file to use.
 
-For more advanced usage, you can run `bandsnatch -h` to get output similar to
-the following.
+For more advanced usage, you can run `bandsnatch run -h` to get output similar
+to the following.
 
 ```
-A CLI batch downloader for your Bandcamp collection
+Run Bandsnatch to download your collection
 
-Usage: bandsnatch [OPTIONS] --format <AUDIO_FORMAT> <USER>
+Usage: bandsnatch run [OPTIONS] --format <AUDIO_FORMAT> <USER>
 
 Arguments:
   <USER>  Name of the user to download releases from (must be logged in through cookies) [env: BS_USER=]
@@ -45,23 +45,24 @@ Arguments:
 Options:
   -f, --format <AUDIO_FORMAT>   The audio format to download the files in [env: BS_FORMAT=] [possible values: flac, wav, aac-hi, mp3-320, aiff-lossless, vorbis, mp3-v0, alac]
   -c, --cookies <COOKIES_FILE>  [env: BS_COOKIES=]
+      --debug                   Enables some extra debug output in certain scenarios [env: BS_DEBUG=]
+  -d, --dry-run                 Return a list of all tracks to be downloaded, without actually downloading them
   -F, --force                   Ignores any found cache file and instead does a from-scratch download run [env: BS_FORCE=]
   -j, --jobs <JOBS>             The amount of parallel jobs (threads) to use [env: BS_JOBS=] [default: 4]
   -n, --limit <LIMIT>           Maximum number of releases to download. Useful for testing [env: BS_LIMIT=]
   -o, --output-folder <FOLDER>  The folder to extract downloaded releases to [env: BS_OUTPUT_FOLDER=] [default: ./]
   -h, --help                    Print help information
-  -V, --version                 Print version information
 ```
 
 Besides these options, you can also use environment variables with the option
 name in `SCREAMING_SNAKE_CASE`, prefixed with `BS_`, so that if set up correctly
-you can just run `bandsnatch` and have it automatically download your collection
-to the folder you want.
+you can just run `bandsnatch run` and have it automatically download your
+collection to the folder you want.
 
 ### Exmaple
 
 ```
-bandsnatch -c ./cookies.json -f flac -o ./Music ovyerus
+bandsnatch run -c ./cookies.json -f flac -o ./Music ovyerus
 ```
 
 This would download my entire music collection into a local "Music" folder, and
@@ -81,9 +82,11 @@ to extract the cookies in the Netscape format, which Bandsnatch also supports.
 
 If you don't provide the `--cookies` option, Bandsnatch will attempt to
 automatically find a file named `cookies.json` or `cookies.txt` in the local
-directory and load it. Failing that, if you use Firefox on Windows or Linux,
+directory and load it.
+
+<!-- Failing that, if you use Firefox on Windows or Linux,
 bandsnatch will try to automatically load the cookies from there if possible
-(TODO).
+(TODO). -->
 
 ## Installing
 
