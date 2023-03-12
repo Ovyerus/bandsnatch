@@ -2,3 +2,4 @@
 /test
 cookies.json
 cookies.txt
+*.cache
