@@ -2,10 +2,16 @@ use crate::util::make_string_fs_safe;
 
 use chrono::{Datelike, TimeZone, Utc};
 use serde::{self, Deserialize};
-use serde_aux::prelude::deserialize_string_from_number;
 use std::{collections::HashMap, path::Path};
 
 const FORMAT: &str = "%d %b %Y %T %Z";
+
+#[derive(Clone, Deserialize, Debug)]
+#[serde(untagged)]
+pub enum ArtId {
+    Str(String),
+    Num(i64),
+}
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct DigitalItem {
@@ -16,23 +22,22 @@ pub struct DigitalItem {
     pub download_type: Option<String>,
     pub download_type_str: String,
     pub item_type: String,
-    #[serde(deserialize_with = "deserialize_string_from_number")]
-    pub art_id: String,
+    pub art_id: Option<ArtId>,
 }
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct DigitalItemDownload {
-    pub size_mb: String,
+    // pub size_mb: Option<String>,
     pub description: String,
     pub encoding_name: String, // Download is chosen by comparing this field and the `format` option.
     pub url: String,
 }
 
 impl DigitalItem {
-    pub fn cover_url(&self) -> String {
-        let art_id = &self.art_id;
-        format!("https://f4.bcbits.com/img/a{art_id}")
-    }
+    // pub fn cover_url(&self) -> String {
+    //     let art_id = &self.art_id;
+    //     format!("https://f4.bcbits.com/img/a{art_id}")
+    // }
 
     pub fn is_single(&self) -> bool {
         (self.download_type.is_some() && self.download_type.as_ref().unwrap() == "t")
