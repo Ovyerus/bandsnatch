@@ -117,6 +117,14 @@ cd bandsnatch
 makepkg -si
 ```
 
+## NetBSD ([Official repositories])
+
+```
+pkgin install bandsnatch
+```
+
+[Official repositories]: https://pkgsrc.se/net/bandsnatch/
+
 ### Crate
 
 `cargo install bandsnatch`
