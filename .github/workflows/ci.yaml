@@ -12,6 +12,15 @@ on:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        platform:
+          - name: x86_64
+            target: amd64
+          - name: aarch64
+            target: arm64
+
     steps:
       - uses: actions/checkout@v2
         with:
@@ -24,9 +33,11 @@ jobs:
         uses: actions/cache@v2
         with:
           path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          key:
+            "${{ runner.os }}-buildx-${{ matrix.platform.name }}-${{ github.sha
+            }}"
           restore-keys: |
-            ${{ runner.os }}-buildx-
+            ${{ runner.os }}-buildx-${{ matrix.platform.name }}
 
       - name: Login to GitHub Registry
         uses: docker/login-action@v2
@@ -38,14 +49,14 @@ jobs:
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v2
         with:
-          platforms: arm64,amd64
+          platforms: ${{ matrix.platform.target }}
 
-      - name: Build in Docker
+      - name: Build in Docker ${{ matrix.platform.name }}
         uses: docker/build-push-action@v3
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/${{ matrix.platform.target }}
           push: false
           # TODO: set :latest and versioned tag, on new version
           # should I even bother pushing?
@@ -54,29 +65,18 @@ jobs:
             ghcr.io/ovyerus/bandsnatch:nightly
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
-          # TODO: extracting binaries?
 
       - name: Extract binaries
         run: |
-          id=$(docker create --platform=linux/amd64 ghcr.io/ovyerus/bandsnatch:nightly)
-          docker cp $id:/bs/bandsnatch - > ./bandsnatch-x86_64
+          id=$(docker create --platform=linux/${{ matrix.platform.target }} ghcr.io/ovyerus/bandsnatch:nightly)
+          docker cp $id:/bs/bandsnatch - > ./bandsnatch-${{ matrix.platform.name }}
           docker rm -v $id
 
-          id=$(docker create --platform=linux/arm64 ghcr.io/ovyerus/bandsnatch:nightly)
-          docker cp $id:/bs/bandsnatch - > ./bandsnatch-aarch64
-          docker rm -v $id
-
-      - name: Upload x86_64
+      - name: Upload ${{ matrix.platform.name }}
         uses: actions/upload-artifact@v2
         with:
-          name: bandsnatch-linux-x86_64-musl
-          path: ./bandsnatch-x86_64
-
-      - name: Upload aarch64
-        uses: actions/upload-artifact@v2
-        with:
-          name: bandsnatch-linux-aarch64-musl
-          path: ./bandsnatch-aarch64
+          name: bandsnatch-linux-${{ matrix.platform.name }}-musl
+          path: ./bandsnatch-${{ matrix.platform.name }}
 
   build-macos:
     runs-on: macos-11
