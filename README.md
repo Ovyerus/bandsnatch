@@ -28,8 +28,8 @@ project in general I'd love to hear them.
 
 The most basic usage is along the lines of
 `bandsnatch run -f <format> <username>`, as it will try to automatically fetch
-cookies from a local `cookies.json` or from Firefox (TODO). But if this fails
-you can provide the `-c` option with a path to a cookies file to use.
+cookies from a local `cookies.json`<!-- or from Firefox (TODO)-->. But if this
+fails you can provide the `-c` option with a path to a cookies file to use.
 
 For more advanced usage, you can run `bandsnatch run -h` to get output similar
 to the following.
@@ -105,7 +105,7 @@ scoop bucket add ovyerus https://github.com/Ovyerus/bucket
 scoop install bandsnatch
 ```
 
-## AUR (unofficial)
+### AUR (unofficial)
 
 An unofficial AUR package is available from [wale](https://github.com/wale) at
 https://aur.archlinux.org/packages/bandsnatch. Either use your favourite AUR
@@ -117,13 +117,15 @@ cd bandsnatch
 makepkg -si
 ```
 
-## NetBSD ([Official repositories])
+### NetBSD (unofficial)
+
+Bandsnatch is also available from the
+[official NetBSD repositories](https://pkgsrc.se/net/bandsnatch/), but is not
+maintaned by myself.
 
 ```
 pkgin install bandsnatch
 ```
-
-[Official repositories]: https://pkgsrc.se/net/bandsnatch/
 
 ### Crate
 

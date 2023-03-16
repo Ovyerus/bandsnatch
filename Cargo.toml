@@ -11,7 +11,12 @@ repository = "https://github.com/Ovyerus/bandsnatch"
 keywords = ["cli", "bandcamp", "music", "downloader", "bcdl"]
 categories = ["command-line-utilities", "multimedia::audio"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "bandsnatch"
+path = "src/main.rs"
+
+[profile.release]
+strip = true
 
 [dependencies]
 chrono = "0.4"
