@@ -10,6 +10,7 @@ COPY docker-target.sh .
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 ENV RUST_BACKTRACE=1
 RUN apk add musl-dev git openssl-dev openssl perl make gcc
+RUN sh ./docker-target.sh
 RUN ln -s "/usr/bin/$(sh ./docker-target.sh)-alpine-linux-musl-gcc" /usr/bin/musl-gcc
 RUN ls /usr/bin
 RUN rustup target add "$(sh ./docker-target.sh)-unknown-linux-musl"
