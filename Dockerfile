@@ -10,8 +10,8 @@ COPY docker-target.sh .
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 ENV RUST_BACKTRACE=1
 RUN apk add musl-dev git openssl-dev openssl perl make gcc
-RUN ls /usr/bin
 RUN ln -s "/usr/bin/$(sh ./docker-target.sh)-alpine-linux-musl-gcc" /usr/bin/musl-gcc
+RUN ls /usr/bin
 RUN rustup target add "$(sh ./docker-target.sh)-unknown-linux-musl"
 
 # Dummy file exists to give Cargo something to compile while it downloads dependencies.
