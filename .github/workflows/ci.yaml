@@ -48,11 +48,6 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v2
-        with:
-          platforms: ${{ matrix.platform.target }}
-
       - name: Build in Docker ${{ matrix.platform.name }}
         uses: docker/build-push-action@v3
         with:
