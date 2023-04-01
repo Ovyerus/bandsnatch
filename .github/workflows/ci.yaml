@@ -11,15 +11,17 @@ on:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-latest
-
     strategy:
       matrix:
         platform:
           - name: x86_64
             target: amd64
+            runs-on: ubuntu-latest
           - name: aarch64
             target: arm64
+            runs-on: [self-hosted, linux, ARM64]
+
+    runs-on: ${{ matrix.platform.runs-on }}
 
     steps:
       - uses: actions/checkout@v2
