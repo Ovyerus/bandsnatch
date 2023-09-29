@@ -37,8 +37,6 @@ pub struct Args {
     #[arg(short = 'f', long = "format", value_parser = PossibleValuesParser::new(FORMATS), env = "BS_FORMAT")]
     audio_format: String,
 
-    // TODO: make this auto load cookies.json or cookies.txt in current
-    // directory if found, or fallback to extracting from Firefox.
     #[arg(short, long, value_name = "COOKIES_FILE", env = "BS_COOKIES")]
     cookies: Option<String>,
 

@@ -23,8 +23,8 @@ struct Args {
 enum Commands {
     /// Run Bandsnatch to download your collection.
     Run(cmds::run::Args),
-    // Get the raw JSON of a specific Bandcamp release for debugging.
-    // Release(cmds::release::Args),
+    DebugCollection(cmds::debug_collection::Args), // Get the raw JSON of a specific Bandcamp release for debugging.
+                                                   // Release(cmds::release::Args),
 }
 
 #[tokio::main]
@@ -39,6 +39,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     match args.command {
         Commands::Run(cmd_args) => cmds::run::command(cmd_args).await,
+        Commands::DebugCollection(cmd_args) => cmds::debug_collection::command(cmd_args).await,
         // Commands::Release(cmd_args) => cmds::release::command(cmd_args).await,
     }
 }

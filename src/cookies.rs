@@ -45,7 +45,8 @@ fn get_text_cookies(content: &str) -> HashMap<String, String> {
 
 pub fn get_bandcamp_cookies(path: Option<&str>) -> Result<HashMap<String, String>, String> {
     if let Some(path) = path {
-        let data = fs::read_to_string(path).unwrap_or_else(|_| panic!("Cannot read cookies file '{path}'"));
+        let data = fs::read_to_string(path)
+            .unwrap_or_else(|_| panic!("Cannot read cookies file '{path}'"));
         // TODO: need to return results from these functions
         let cookies = if path.ends_with(".json") {
             get_json_cookies(&data)
@@ -56,7 +57,7 @@ pub fn get_bandcamp_cookies(path: Option<&str>) -> Result<HashMap<String, String
         return Ok(cookies);
     }
 
-    // If no path provided, look for local cookies, or fallback to Firefox.
+    // If no path provided, look for local cookies
 
     get_bandcamp_cookies(Some("./cookies.json"))
         .or_else(|_| get_bandcamp_cookies(Some("./cookies.txt")))
