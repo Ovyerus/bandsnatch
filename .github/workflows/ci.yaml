@@ -68,6 +68,7 @@ jobs:
         run: |
           id=$(docker create --platform=linux/${{ matrix.platform.target }} ghcr.io/ovyerus/bandsnatch:nightly)
           docker cp $id:/bs/bandsnatch - > ./bandsnatch-${{ matrix.platform.name }}
+          ls ./
           docker rm -v $id
 
       - name: Upload ${{ matrix.platform.name }}
@@ -160,8 +161,8 @@ jobs:
             "linux-aarch64"
           )
 
-          ls ./
-          ls ../
+          ls ../bandsnatch-linux-x86_64
+          ls ../bandsnatch-linux-aarch64
 
           for target in "${arr[@]}"
           do
