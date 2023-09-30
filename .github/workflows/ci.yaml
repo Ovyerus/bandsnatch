@@ -67,15 +67,14 @@ jobs:
       - name: Extract binaries
         run: |
           id=$(docker create --platform=linux/${{ matrix.platform.target }} ghcr.io/ovyerus/bandsnatch:nightly)
-          docker cp $id:/bs/bandsnatch - > ./bandsnatch-${{ matrix.platform.name }}
-          ls ./
+          docker cp $id:/bs/bandsnatch - > ./bandsnatch
           docker rm -v $id
 
       - name: Upload ${{ matrix.platform.name }}
         uses: actions/upload-artifact@v2
         with:
           name: bandsnatch-linux-${{ matrix.platform.name }}
-          path: ./bandsnatch-${{ matrix.platform.name }}
+          path: ./bandsnatch
 
   build-macos:
     runs-on: macos-11
