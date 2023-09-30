@@ -11,10 +11,6 @@ repository = "https://github.com/Ovyerus/bandsnatch"
 keywords = ["cli", "bandcamp", "music", "downloader", "bcdl"]
 categories = ["command-line-utilities", "multimedia::audio"]
 
-[[bin]]
-name = "bandsnatch"
-path = "src/main.rs"
-
 [profile.release]
 strip = true
 
