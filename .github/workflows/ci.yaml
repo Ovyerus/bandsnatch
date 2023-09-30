@@ -160,6 +160,9 @@ jobs:
             "linux-aarch64"
           )
 
+          ls ./
+          ls ../
+
           for target in "${arr[@]}"
           do
             if [[ "$target" == *windows* ]]; then
