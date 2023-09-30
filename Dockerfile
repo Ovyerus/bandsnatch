@@ -1,4 +1,4 @@
-FROM rust:1.68-alpine3.17 AS builder
+FROM rust:1.70-alpine3.17 AS builder
 
 ARG TARGETARCH
 ENV TARGETARCH=${TARGETARCH}
