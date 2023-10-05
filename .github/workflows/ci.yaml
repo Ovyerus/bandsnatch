@@ -69,6 +69,7 @@ jobs:
           id=$(docker create --platform=linux/${{ matrix.platform.target }} ghcr.io/ovyerus/bandsnatch:nightly)
           docker cp $id:/bs/bandsnatch - > ./bandsnatch
           docker rm -v $id
+          file ./bandsnatch
 
       - name: Upload ${{ matrix.platform.name }}
         uses: actions/upload-artifact@v2
