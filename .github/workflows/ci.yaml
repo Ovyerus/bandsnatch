@@ -160,9 +160,6 @@ jobs:
             "linux-aarch64"
           )
 
-          ls ../bandsnatch-linux-x86_64
-          ls ../bandsnatch-linux-aarch64
-
           for target in "${arr[@]}"
           do
             if [[ "$target" == *windows* ]]; then
