@@ -29,8 +29,8 @@ pub struct FanData {
 
 #[derive(Deserialize, Debug)]
 pub struct CollectionData {
-    pub batch_size: u16,
-    pub item_count: u16,
+    pub batch_size: Option<u16>,
+    pub item_count: Option<u16>,
     pub last_token: Option<String>,
     pub redownload_urls: Option<DownloadsMap>,
 }

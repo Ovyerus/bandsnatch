@@ -100,7 +100,8 @@ impl Api {
         if fanpage_data.collection_data.item_count > fanpage_data.collection_data.batch_size {
             debug!(
                 "Too many in `collection_data`, so we need to paginate ({} total)",
-                fanpage_data.collection_data.item_count
+                // This should never be `None` thanks to the comparison above.
+                fanpage_data.collection_data.item_count.unwrap()
             );
             let rest = self
                 .get_rest_downloads_in_collection(&fanpage_data, "collection_items")
@@ -113,7 +114,7 @@ impl Api {
         {
             debug!(
                 "Too many in `hidden_data`, and we're told not to skip, so we need to paginate ({} total)",
-                fanpage_data.hidden_data.item_count
+                fanpage_data.hidden_data.item_count.unwrap()
             );
             let rest = self
                 .get_rest_downloads_in_collection(&fanpage_data, "hidden_items")
