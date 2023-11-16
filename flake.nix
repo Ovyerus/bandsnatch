@@ -34,7 +34,10 @@
 
         # TODO: cross compilation
         craneLib = crane.lib.${system};
-        rust = pkgs.rust-bin.stable.latest.default; # TODO: lock
+        # TODO: lock
+        rust = pkgs.rust-bin.stable.latest.default.override {
+          extensions = ["rust-src"];
+        };
 
         stdenv =
           if pkgs.stdenv.isLinux

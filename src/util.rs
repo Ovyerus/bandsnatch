@@ -5,7 +5,7 @@ use std::{
 };
 
 // From https://github.com/Ezwen/bandcamp-collection-downloader/blob/master/src/main/kotlin/bandcampcollectiondownloader/core/Constants.kt#L7
-static REPLACEMENT_CHARS: phf::Map<&'static str, &'static str> = phf_map! {
+static REPLACEMENT_CHARS: phf::Map<&str, &str> = phf_map! {
     ":" => "꞉",
     "/" => "／",
     "\\" => "⧹",
@@ -17,11 +17,19 @@ static REPLACEMENT_CHARS: phf::Map<&'static str, &'static str> = phf_map! {
     "|" => "∣"
 };
 
+// NTFS doesn't like these and pretty much shits itself if you try to do
+// anything to files/folders containing em.
+static UNSAFE_NTFS_ENDINGS: &[char] = &['.', ' '];
+
 pub fn make_string_fs_safe(s: &str) -> String {
     let mut str = s.to_string();
 
     for (from, to) in REPLACEMENT_CHARS.entries() {
         str = str.replace(from, to);
+    }
+
+    if UNSAFE_NTFS_ENDINGS.contains(&str.chars().last().unwrap()) {
+        str.push('_');
     }
 
     str
