@@ -1,5 +1,8 @@
 /target
+/result
 /test
+.direnv
+.envrc
 cookies.json
 cookies.txt
 *.cache
