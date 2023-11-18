@@ -77,7 +77,7 @@ provide it the authentication cookies. For Firefox users, you can extract a
 `cookies.json` with the
 [Cookie Quick Manager extension](https://addons.mozilla.org/en-US/firefox/addon/cookie-quick-manager/),
 and on Chrome, you can use the
-[Get cookies.txt extension](https://chrome.google.com/webstore/detail/get-cookiestxt/bgaddhkoddajcdgocldbbfleckgcbcid/),
+[Get cookies.txt LOCALLY extension](https://chromewebstore.google.com/detail/cclelndahbckbenkjhflpdbgdldlbecc),
 to extract the cookies in the Netscape format, which Bandsnatch also supports.
 
 If you don't provide the `--cookies` option, Bandsnatch will attempt to
