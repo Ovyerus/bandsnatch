@@ -49,11 +49,11 @@
 
           buildInputs = with pkgs;
             []
-            ++ (lib.optional stdenv.isLinux [])
             ++ (lib.optional stdenv.isDarwin [libiconvReal]);
 
           nativeBuildInputs = with pkgs;
             [pkg-config]
+            ++ (lib.optional stdenv.isLinux [openssl.dev])
             ++ (lib.optional stdenv.isDarwin (with darwin.apple_sdk; [
               frameworks.AppKit
               frameworks.CoreFoundation
