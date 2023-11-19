@@ -1,10 +1,11 @@
 use clap::{builder::PossibleValuesParser, Args as ClapArgs};
+use crossbeam_utils::thread;
 use indicatif::MultiProgress;
 use std::{
+    fs,
     path::Path,
     sync::{Arc, Mutex},
 };
-use tokio::fs;
 
 use crate::{api, cache, cookies, util};
 
@@ -75,7 +76,7 @@ pub struct Args {
     user: String,
 }
 
-pub async fn command(
+pub fn command(
     Args {
         audio_format,
         cookies,
@@ -96,7 +97,7 @@ pub async fn command(
     let root = Path::new(root.as_ref());
     let limit = limit.unwrap_or(usize::MAX);
 
-    let root_exists = match fs::metadata(root).await {
+    let root_exists = match fs::metadata(root) {
         Ok(d) => Some(d.is_dir()),
         Err(_) => None,
     };
@@ -107,17 +108,16 @@ pub async fn command(
             error!("Cannot use `output-folder`, as it is not a folder. Please delete it and create as a directory, or try a different path.");
             std::process::exit(1);
         }
-        None => fs::create_dir_all(root).await?,
+        None => fs::create_dir_all(root)?,
     }
 
-    let bandcamp_cookies = cookies::get_bandcamp_cookies(cookies_file.as_deref())?;
-    let cookie = cookies::cookies_to_string(&bandcamp_cookies);
-    let api = Arc::new(api::Api::new(cookie));
+    let cookies = cookies::get_bandcamp_cookies(cookies_file.as_deref())?;
+    let api = Arc::new(api::Api::new(cookies));
     let cache = Arc::new(Mutex::new(cache::Cache::new(
         root.join("bandcamp-collection-downloader.cache"),
     )));
 
-    let download_urls = api.get_download_urls(&user).await?.download_urls;
+    let download_urls = api.get_download_urls(&user)?.download_urls;
     let items = {
         // Lock gets freed after this block.
         let cache_content = cache.lock().unwrap().content()?;
@@ -141,7 +141,7 @@ pub async fn command(
 
     // TODO:  dry_run
 
-    tokio_scoped::scope(|scope| {
+    thread::scope(|scope| {
         for i in 0..jobs {
             let api = api.clone();
             let cache = cache.clone();
@@ -151,12 +151,12 @@ pub async fn command(
             let dry_run_results = dry_run_results.clone();
 
             // somehow re-create thread if it panics
-            scope.spawn(async move {
+            scope.spawn(move |_| {
                 while let Some((id, url)) = queue.get_work() {
                     m.suspend(|| debug!("thread {i} taking {id}"));
 
                     // skip_err!
-                    let item = match api.get_digital_item(&url, &debug).await {
+                    let item = match api.get_digital_item(&url, &debug) {
                         Ok(Some(item)) => item,
                         Ok(None) => {
                             let cache = cache.lock().unwrap();
@@ -188,11 +188,11 @@ pub async fn command(
                     .unwrap();
 
                     let path = item.destination_path(root);
-                    skip_err!(fs::create_dir_all(&path).await);
+                    skip_err!(fs::create_dir_all(&path));
 
                     // TODO: separate cache for failed downloads.
                     // TODO: retries
-                    skip_err!(api.download_item(&item, &path, &audio_format, &m).await);
+                    skip_err!(api.download_item(&item, &path, &audio_format, &m));
 
                     let cache = cache.lock().unwrap();
                     if !cache.content().unwrap().contains(&id) {
@@ -209,7 +209,8 @@ pub async fn command(
                 }
             });
         }
-    });
+    })
+    .unwrap();
 
     if dry_run {
         println!("{}", dry_run_results.lock().unwrap().join("\n"));

@@ -1,21 +1,19 @@
-use futures_util::StreamExt;
+use http::header::CONTENT_DISPOSITION;
 use indicatif::ProgressStyle;
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_DISPOSITION};
-use reqwest::{Client, RequestBuilder};
+use reqwest::blocking as reqwest;
 use serde::Serialize;
 use soup::prelude::*;
 use std::error::Error;
+use std::fs::{self, File};
 use std::io::BufReader;
 use std::path::Path;
 use std::str;
-use tokio::{
-    fs::{self, File},
-    io::AsyncWriteExt,
-};
+use std::sync::Arc;
 
 pub mod structs;
 use crate::api::structs::*;
-use crate::util::slice_string;
+use crate::cookies;
+use crate::util;
 
 pub struct BandcampPage {
     pub download_urls: DownloadsMap,
@@ -31,18 +29,16 @@ struct PostCollectionBody<'a> {
 }
 
 pub struct Api {
-    client: Client,
-    // cookies: String,
+    pub client: reqwest::Client,
 }
 
 impl Api {
-    pub fn new(cookies: String) -> Self {
-        // Cookie jar doesn't work properly for some reason, I'm probably doing
-        // something wrong there.
-        let mut headers = HeaderMap::new();
-        headers.insert("Cookie", HeaderValue::from_str(&cookies).unwrap());
-
-        let client = Client::builder().default_headers(headers).build().unwrap();
+    pub fn new(cookies: Vec<cookies::RawCookie>) -> Self {
+        let cookie_jar = cookies::fill_cookie_jar(cookies);
+        let client = reqwest::ClientBuilder::new()
+            .cookie_provider(Arc::new(cookie_jar))
+            .build()
+            .unwrap();
 
         Self { client }
     }
@@ -51,18 +47,11 @@ impl Api {
         format!("https://bandcamp.com/{path}")
     }
 
-    fn get(&self, path: &str) -> RequestBuilder {
-        self.client.get(path)
-    }
-
-    fn post(&self, path: &str) -> RequestBuilder {
-        self.client.post(path)
-    }
-
     /// Scrape a user's Bandcamp page to find download urls
-    pub async fn get_download_urls(&self, name: &str) -> Result<BandcampPage, Box<dyn Error>> {
+    pub fn get_download_urls(&self, name: &str) -> Result<BandcampPage, Box<dyn Error>> {
         debug!("`get_download_urls` for Bandcamp page '{name}'");
-        let body = self.get(&Self::bc_path(name)).send().await?.text().await?;
+
+        let body = self.client.get(&Self::bc_path(name)).send()?.text()?;
         let soup = Soup::new(&body);
 
         let data_el = soup
@@ -74,7 +63,7 @@ impl Api {
             .expect("Failed to extract data from element on collection page.");
         let fanpage_data: ParsedFanpageData = serde_json::from_str(&data_blob)
             .expect("Failed to deserialise collection page data blob.");
-        debug!("Successfully fetched Bandcamp page, and found + deserialised data blob ");
+        debug!("Successfully fetched Bandcamp page, and found + deserialised data blob");
 
         match fanpage_data.fan_data.is_own_page {
             Some(true) => (),
@@ -103,9 +92,7 @@ impl Api {
                 // This should never be `None` thanks to the comparison above.
                 fanpage_data.collection_data.item_count.unwrap()
             );
-            let rest = self
-                .get_rest_downloads_in_collection(&fanpage_data, "collection_items")
-                .await?;
+            let rest = self.get_rest_downloads_in_collection(&fanpage_data, "collection_items")?;
             collection.extend(rest);
         }
 
@@ -116,9 +103,7 @@ impl Api {
                 "Too many in `hidden_data`, and we're told not to skip, so we need to paginate ({} total)",
                 fanpage_data.hidden_data.item_count.unwrap()
             );
-            let rest = self
-                .get_rest_downloads_in_collection(&fanpage_data, "hidden_items")
-                .await?;
+            let rest = self.get_rest_downloads_in_collection(&fanpage_data, "hidden_items")?;
             collection.extend(rest);
         }
 
@@ -132,7 +117,7 @@ impl Api {
     }
 
     /// Loop over a user's collection to retrieve all paginated items.
-    async fn get_rest_downloads_in_collection(
+    fn get_rest_downloads_in_collection(
         &self,
         data: &ParsedFanpageData,
         collection_name: &str,
@@ -156,14 +141,13 @@ impl Api {
                 older_than_token: &last_token,
             };
             let body = self
+                .client
                 .post(&Self::bc_path(&format!(
                     "api/fancollection/1/{collection_name}"
                 )))
                 .json(&body)
-                .send()
-                .await?
-                .json::<ParsedCollectionItems>()
-                .await?;
+                .send()?
+                .json::<ParsedCollectionItems>()?;
 
             trace!("Collected {} items", body.redownload_urls.clone().len());
             collection.extend(body.redownload_urls);
@@ -175,13 +159,13 @@ impl Api {
         Ok(collection)
     }
 
-    pub async fn get_digital_item(
+    pub fn get_digital_item(
         &self,
         url: &str,
         debug: &bool,
     ) -> Result<Option<DigitalItem>, Box<dyn Error>> {
         debug!("Retrieving digital item information for {url}");
-        let res = self.get(url).send().await?.text().await?;
+        let res = self.client.get(url).send()?.text()?;
         let soup = Soup::new(&res);
 
         let download_page_blob = soup
@@ -211,48 +195,21 @@ impl Api {
         Ok(item)
     }
 
-    // pub async fn retrieve_real_download_url(
-    //     &self,
-    //     item: &DigitalItem,
-    //     audio_format: &str,
-    // ) -> Result<String, Box<dyn Error>> {
-    //     let downloads = &item.downloads;
-    //     let download_url = &downloads.get(audio_format).unwrap().url;
-
-    //     // TODO: do some testing to see if this is all really necessary, and if
-    //     // we can just use the url given above (since it works in the browser).
-    //     let random = rand::random::<u8>();
-    //     let url = download_url
-    //         .clone()
-    //         .replace("/download/", "/statdownload/")
-    //         .replace("http:", "https")
-    //         + &format!("&.vrs=1&.rand={random}");
-    //     let js_content = self.get(&url).send().await?.text().await?;
-    //     let json_text = js_content
-    //         .replace("if ( window.Downloads ) { Downloads.statResult ( ", "")
-    //         .replace(" ) };", "");
-    //     let json = serde_json::from_str::<ParsedStatDownload>(&json_text)?;
-
-    //     Ok(json.download_url)
-    // }
-
-    pub async fn download_item(
+    pub fn download_item(
         &self,
         item: &DigitalItem,
         path: &str,
         audio_format: &str,
         m: &indicatif::MultiProgress,
-        // pb: &indicatif::ProgressBar,
     ) -> Result<(), Box<dyn Error>> {
-        // let download_url = self
-        //     .retrieve_real_download_url(item, audio_format)
-        //     .await
-        //     .expect("Failed to retrieve item download URL");
-        // debug!("Downloading {}", item.);
         let download_url = &item.downloads.get(audio_format).unwrap().url;
-        let res = self.get(download_url).send().await?;
+        let res = self.client.get(download_url).send()?;
+        // println!("{:?}", &item.downloads);
+        // println!("{:?}", res.headers_names());
+        // m.suspend(|| println!("{:?}", res.header("Content-Type")));
 
         let len = res.content_length().unwrap();
+        // let len = res.header("Content-Length").unwrap().parse()?;
         let full_title = format!("{} - {}", item.title, item.artist);
         let pb = m.add(
             indicatif::ProgressBar::new(len)
@@ -262,6 +219,7 @@ impl Api {
                         .unwrap(),
                 ),
         );
+        // let x = res.into::<http::Response<Vec<u8>>>();
 
         let disposition = res.headers().get(CONTENT_DISPOSITION).unwrap();
         // `HeaderValue::to_str` only handles valid ASCII bytes, and Bandcamp
@@ -269,7 +227,7 @@ impl Api {
         // so need to handle ourselves.
         let content = str::from_utf8(disposition.as_bytes())?;
         // Should probably use a thing to properly parse the content of content disposition.
-        let filename = slice_string(
+        let filename = util::slice_string(
             content
                 .split("; ")
                 .find(|x| x.starts_with("filename="))
@@ -282,33 +240,24 @@ impl Api {
         // TODO: drop file with `.part` extension instead, while downloading, and then rename when finished?.
 
         let full_path = Path::new(path).join(filename);
-        let mut file = File::create(&full_path).await?;
-        let mut downloaded: u64 = 0;
-        let mut stream = res.bytes_stream();
+        let mut file = File::create(&full_path)?;
+        let mut stream = res;
         m.suspend(|| debug!("Starting download"));
 
-        while let Some(item) = stream.next().await {
-            // TODO: Handle better
-            let chunk = item?;
-            file.write_all(&chunk).await?;
-
-            let new = std::cmp::min(downloaded + (chunk.len() as u64), len);
-            downloaded = new;
-            pb.set_position(new)
-        }
+        util::copy_with_progress(&mut stream, &mut file, &pb)?;
+        pb.set_position(len);
 
         // Close downloaded file.
         drop(file);
 
         if !item.is_single() {
             m.suspend(|| debug!("Unzipping album"));
-            // TODO: async unzipping?
-            let file = File::open(&full_path).await?.into_std().await;
+            let file = File::open(&full_path)?;
             let reader = BufReader::new(file);
             let mut archive = zip::ZipArchive::new(reader)?;
 
             archive.extract(path)?;
-            fs::remove_file(&full_path).await?;
+            fs::remove_file(&full_path)?;
             m.suspend(|| debug!("Unzipped and removed original archive"));
         }
         // Cover folder downloading for singles

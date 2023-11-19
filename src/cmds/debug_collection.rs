@@ -27,7 +27,7 @@ pub struct Args {
 
 /// Self contained command that outputs the `pagedata` blob from a user's
 /// Bandcamp collection page.
-pub async fn command(
+pub fn command(
     Args {
         cookies,
         full,
@@ -40,24 +40,14 @@ pub async fn command(
         expanded.into_owned()
     });
 
-    let bandcamp_cookies = cookies::get_bandcamp_cookies(cookies_file.as_deref())?;
-    let cookie = cookies::cookies_to_string(&bandcamp_cookies);
-    let mut headers = reqwest::header::HeaderMap::new();
-    headers.insert(
-        "Cookie",
-        reqwest::header::HeaderValue::from_str(&cookie).unwrap(),
-    );
-    let client = reqwest::Client::builder()
-        .default_headers(headers)
-        .build()
-        .unwrap();
+    let cookies = cookies::get_bandcamp_cookies(cookies_file.as_deref())?;
+    let api = crate::api::Api::new(cookies);
 
-    let body = client
+    let body = api
+        .client
         .get(&format!("https://bandcamp.com/{user}"))
-        .send()
-        .await?
-        .text()
-        .await?;
+        .send()?
+        .text()?;
     let soup = Soup::new(&body);
 
     let data_el = soup
