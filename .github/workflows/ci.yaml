@@ -24,17 +24,18 @@ jobs:
     runs-on: ${{ matrix.platform.runs-on }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: cachix/install-nix-action@v22
+
+      - uses: cachix/install-nix-action@v26
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - run: nix build
 
       - name: Upload ${{ matrix.platform.name }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: bandsnatch-linux-${{ matrix.platform.name }}
           path: ./result/bin/bandsnatch
@@ -47,27 +48,18 @@ jobs:
           - x86_64
           - aarch64
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - name: Install target
-        uses: actions-rs/toolchain@v1
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable-apple-darwin
           target: ${{ matrix.target }}-apple-darwin
-          override: true
-          profile: minimal
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.target }}
 
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --target ${{ matrix.target }}-apple-darwin
+        run: cargo build --release --target ${{ matrix.target }}-apple-darwin
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: bandsnatch-macos-${{ matrix.target }}
           path: "target/${{ matrix.target }}-apple-darwin/release/bandsnatch"
@@ -75,25 +67,18 @@ jobs:
   build-windows:
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
-      - name: Install target
-        uses: actions-rs/toolchain@v1
+      - name: Install toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable-x86_64-pc-windows-msvc
           target: x86_64-pc-windows-msvc
-          override: true
-          profile: minimal
-
-      - uses: Swatinem/rust-cache@v2
 
       - name: Build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --target x86_64-pc-windows-msvc
+        run: cargo build --release --target x86_64-pc-windows-msvc
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: "bandsnatch-windows-x86_64"
           path: "target/x86_64-pc-windows-msvc/release/bandsnatch.exe"
@@ -108,8 +93,8 @@ jobs:
       - build-macos
       - build-windows
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/download-artifact@v3
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
 
       - name: Rename files
         run: |
@@ -138,14 +123,14 @@ jobs:
           done
 
       - name: Create draft release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           body: Update the description for the release!
           draft: true
           files: ./out/*
 
       - name: Update Homebrew tap
-        uses: mislav/bump-homebrew-formula-action@v2
+        uses: mislav/bump-homebrew-formula-action@v3
         with:
           formula-name: bandsnatch
           homebrew-tap: Ovyerus/homebrew-tap
