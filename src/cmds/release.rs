@@ -15,6 +15,7 @@ pub struct Args {
     id: String,
 }
 
+#[allow(dead_code)]
 pub async fn command(_args: Args) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }

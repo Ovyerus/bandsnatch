@@ -1,6 +1,6 @@
 use crate::util::make_string_fs_safe;
 
-use chrono::{Datelike, TimeZone, Utc};
+use chrono::{DateTime, Datelike};
 use serde::{self, Deserialize};
 use std::{collections::HashMap, path::Path};
 
@@ -47,7 +47,7 @@ impl DigitalItem {
 
     pub fn release_year(&self) -> String {
         match &self.package_release_date {
-            Some(d) => match Utc.datetime_from_str(d, FORMAT) {
+            Some(d) => match DateTime::parse_from_str(d, FORMAT) {
                 Ok(dt) => dt.year().to_string(),
                 Err(_) => String::from("0000"),
             },
