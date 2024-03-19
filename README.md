@@ -94,6 +94,19 @@ Binary builds of Bandsnatch are available on our
 [releases page](https://github.com/Ovyerus/bandsnatch/releases) for Windows, Mac
 (both ARM & Intel), and Linux (various architectures).
 
+### Nix flake
+
+If you use [Nix](https://nixos.org), Bandsnatch is available as a flake. You can
+try it out without installing via `nix run` or `nix shell`:
+
+```
+nix run github:ovyerus/bandsnatch -- --help
+nix shell github:ovyerus/bandsnatch
+```
+
+You can install it permanently with `nix profile install`, or by adding it to
+your NixOS/Home Manager configuration.
+
 ### Homebrew
 
 `brew install ovyerus/tap/bandsnatch`
@@ -105,11 +118,11 @@ scoop bucket add ovyerus https://github.com/Ovyerus/bucket
 scoop install bandsnatch
 ```
 
-### AUR (unofficial)
+### AUR
 
-An unofficial AUR package is available from [wale](https://github.com/wale) at
-https://aur.archlinux.org/packages/bandsnatch. Either use your favourite AUR
-helper, or you can install it manually via the following:
+Bandsnatch is also available on the
+[AUR](https://aur.archlinux.org/packages/bandsnatch). Either use your favourite
+AUR helper, or you can install it manually via the following:
 
 ```
 git clone https://aur.archlinux.org/bandsnatch.git
