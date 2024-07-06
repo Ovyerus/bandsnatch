@@ -41,7 +41,7 @@ jobs:
           path: ./result/bin/bandsnatch
 
   build-macos:
-    runs-on: macos-11
+    runs-on: macos-13
     strategy:
       matrix:
         target:
