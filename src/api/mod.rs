@@ -1,5 +1,10 @@
+use ::reqwest::IntoUrl;
+use governor::{Quota, RateLimiter};
 use http::header::CONTENT_DISPOSITION;
+use http::Method;
 use indicatif::ProgressStyle;
+use nonzero_ext::*;
+use pollster::FutureExt as _;
 use reqwest::blocking as reqwest;
 use serde::Serialize;
 use soup::prelude::*;
@@ -28,8 +33,11 @@ struct PostCollectionBody<'a> {
     older_than_token: &'a str,
 }
 
+const MAX_RETRIES: u8 = 5;
+
 pub struct Api {
     pub client: reqwest::Client,
+    ratelimiter: governor::DefaultDirectRateLimiter,
 }
 
 impl Api {
@@ -39,19 +47,62 @@ impl Api {
             .cookie_provider(Arc::new(cookie_jar))
             .build()
             .unwrap();
+        let ratelimiter = RateLimiter::direct(Quota::per_second(nonzero!(3u32)));
 
-        Self { client }
+        Self {
+            client,
+            ratelimiter,
+        }
     }
 
     fn bc_path(path: &str) -> String {
         format!("https://bandcamp.com/{path}")
     }
 
+    fn request<U: IntoUrl + Copy>(
+        &self,
+        method: Method,
+        url: U,
+    ) -> Result<reqwest::Response, Box<dyn Error>> {
+        self.request_with_retry(method, url, 0)
+    }
+
+    fn request_with_retry<U: IntoUrl + Copy>(
+        &self,
+        method: Method,
+        url: U,
+        retry_attempt: u8,
+    ) -> Result<reqwest::Response, Box<dyn Error>> {
+        self.ratelimiter.until_ready().block_on();
+
+        let response = self.client.request(method.clone(), url.clone()).send()?;
+        let status: http::StatusCode = response.status();
+
+        if !status.is_success() {
+            if status != http::StatusCode::TOO_MANY_REQUESTS {
+                bail!(
+                    "request failed with status {status} for url {}",
+                    url.as_str()
+                );
+            }
+
+            if retry_attempt >= MAX_RETRIES {
+                bail!(format!("reached maximum retries for url {}", url.as_str()));
+            }
+
+            warn!("hit ratelimit from Bandcamp, sleeping for 10 seconds");
+            std::thread::sleep(std::time::Duration::from_secs(10));
+            return self.request_with_retry(method, url, retry_attempt + 1);
+        }
+
+        Ok(response)
+    }
+
     /// Scrape a user's Bandcamp page to find download urls
     pub fn get_download_urls(&self, name: &str) -> Result<BandcampPage, Box<dyn Error>> {
         debug!("`get_download_urls` for Bandcamp page '{name}'");
 
-        let body = self.client.get(&Self::bc_path(name)).send()?.text()?;
+        let body = self.request(Method::GET, &Self::bc_path(name))?.text()?;
         let soup = Soup::new(&body);
 
         let data_el = soup
@@ -165,15 +216,19 @@ impl Api {
         debug: &bool,
     ) -> Result<Option<DigitalItem>, Box<dyn Error>> {
         debug!("Retrieving digital item information for {url}");
-        let res = self.client.get(url).send()?.text()?;
-        let soup = Soup::new(&res);
+        let text = self.request(Method::GET, url)?.text()?;
+        let soup = Soup::new(&text);
 
         let download_page_blob = soup
             .attr("id", "pagedata")
             .find()
-            .unwrap()
+            .expect(&format!(
+                "could not find `pagedata` element for digital item {url}"
+            ))
             .get("data-blob")
-            .unwrap();
+            .expect(&format!(
+                "could not extract `data-blob` from the pagedata element for digital item {url}"
+            ));
 
         let item_result = std::panic::catch_unwind(|| {
             serde_json::from_str::<ParsedItemsData>(&download_page_blob).unwrap()
@@ -203,10 +258,7 @@ impl Api {
         m: &indicatif::MultiProgress,
     ) -> Result<(), Box<dyn Error>> {
         let download_url = &item.downloads.get(audio_format).unwrap().url;
-        let res = self.client.get(download_url).send()?;
-        // println!("{:?}", &item.downloads);
-        // println!("{:?}", res.headers_names());
-        // m.suspend(|| println!("{:?}", res.header("Content-Type")));
+        let res = self.request(Method::GET, download_url)?;
 
         let len = res.content_length().unwrap();
         // let len = res.header("Content-Length").unwrap().parse()?;
@@ -219,7 +271,6 @@ impl Api {
                         .unwrap(),
                 ),
         );
-        // let x = res.into::<http::Response<Vec<u8>>>();
 
         let disposition = res.headers().get(CONTENT_DISPOSITION).unwrap();
         // `HeaderValue::to_str` only handles valid ASCII bytes, and Bandcamp
