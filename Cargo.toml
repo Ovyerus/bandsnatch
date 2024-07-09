@@ -26,7 +26,7 @@ indicatif = "0.17"
 log = "0.4"
 phf = { version = "0.11.1", features = ["macros"] }
 rand = "0.8"
-reqwest = { version = "0.12", features = ["blocking", "cookies", "json"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "charset", "cookies", "json", "http2", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 serde-aux = "4"
 serde_json = "1"
