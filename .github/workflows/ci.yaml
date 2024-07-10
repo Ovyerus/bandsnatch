@@ -49,20 +49,19 @@ jobs:
           - aarch64
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install toolchain
-        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          toolchain: stable-apple-darwin
-          target: ${{ matrix.target }}-apple-darwin
+          fetch-depth: 0
 
-      - name: Build
-        run: cargo build --release --target ${{ matrix.target }}-apple-darwin
+      - uses: cachix/install-nix-action@v26
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: nix build .#cross-${{ matrix.target }}-darwin
 
       - uses: actions/upload-artifact@v4
         with:
           name: bandsnatch-macos-${{ matrix.target }}
-          path: "target/${{ matrix.target }}-apple-darwin/release/bandsnatch"
+          path: ./result/bin/bandsnatch
 
   build-windows:
     runs-on: windows-2022
