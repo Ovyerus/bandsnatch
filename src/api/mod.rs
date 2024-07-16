@@ -22,8 +22,7 @@ use crate::util;
 
 pub struct BandcampPage {
     pub download_urls: DownloadsMap,
-    // TODO: is this actually used anywhere?
-    pub page_name: String,
+    // pub page_name: String,
 }
 
 /// Body used to paginate through Bandcamp's collection API.
@@ -158,11 +157,11 @@ impl Api {
             collection.extend(rest);
         }
 
-        let title = soup.tag("title").find().unwrap().text();
+        // let title = soup.tag("title").find().unwrap().text();
 
         debug!("Successfully retrieved all download URLs");
         Ok(BandcampPage {
-            page_name: title,
+            // page_name: title,
             download_urls: collection,
         })
     }

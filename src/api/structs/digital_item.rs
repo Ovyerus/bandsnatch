@@ -6,12 +6,12 @@ use std::{collections::HashMap, path::Path};
 
 const FORMAT: &str = "%d %b %Y %T %Z";
 
-#[derive(Clone, Deserialize, Debug)]
-#[serde(untagged)]
-pub enum ArtId {
-    Str(String),
-    Num(i64),
-}
+// #[derive(Clone, Deserialize, Debug)]
+// #[serde(untagged)]
+// pub enum ArtId {
+//     Str(String),
+//     Num(i64),
+// }
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct DigitalItem {
@@ -22,14 +22,14 @@ pub struct DigitalItem {
     pub download_type: Option<String>,
     pub download_type_str: String,
     pub item_type: String,
-    pub art_id: Option<ArtId>,
+    // pub art_id: Option<ArtId>,
 }
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct DigitalItemDownload {
     // pub size_mb: Option<String>,
-    pub description: String,
-    pub encoding_name: String, // Download is chosen by comparing this field and the `format` option.
+    // pub description: String,
+    // pub encoding_name: String, // Download is chosen by comparing this field and the `format` option.
     pub url: String,
 }
 
