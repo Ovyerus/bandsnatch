@@ -1,8 +1,0 @@
-/target
-/test
-/.github
-/.vscode
-cookies.json
-cookies.txt
-*.cache
-Dockerfile
