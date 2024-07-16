@@ -4,7 +4,7 @@ use serde::Deserialize;
 use std::fs;
 use std::vec::Vec;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct RawCookie {
     #[serde(rename = "Host raw")]
     host: String,
@@ -39,10 +39,13 @@ fn get_text_cookies(content: &str) -> Vec<RawCookie> {
     for l in lines {
         if !l.starts_with('#') {
             let columns: Vec<&str> = l.split('\t').collect();
-            // TODO: comment the significance of this
             if columns.len() == 7 {
+                // Fix problem where cookies.txt only gives us raw domains.
+                let mut host = "https://".to_owned();
+                host.push_str(columns[0]);
+
                 vec.push(RawCookie {
-                    host: String::from(columns[0]),
+                    host: host,
                     name: String::from(columns[5]),
                     content: String::from(columns[6]),
                 })
@@ -85,7 +88,7 @@ pub fn fill_cookie_jar(cookies: Vec<RawCookie>) -> Jar {
         content,
     } in cookies
     {
-        let host = url::Url::parse(&host).unwrap();
+        let host = url::Url::parse(&host).expect("failed to unwrap cookies");
         let cookie = format!("{name}={content}; Domain={}", host.domain().unwrap());
         jar.add_cookie_str(&cookie, &host);
     }

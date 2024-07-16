@@ -12,6 +12,9 @@ and this project adheres to
 
 - Force folders to end with an underscore if they would usually end with a space
   or full stop, due to issues with NTFS (#11).
+- Add ratelimiting to mitigate crashes that would occur when attempting dry runs
+  sometimes.
+- Fix URL parsing error that would occur when using `cookies.txt`.
 
 ## [0.3.1] - 2023-10-07
 
