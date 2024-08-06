@@ -256,7 +256,13 @@ impl Api {
         audio_format: &str,
         m: &indicatif::MultiProgress,
     ) -> Result<(), Box<dyn Error>> {
-        let download_url = &item.downloads.get(audio_format).unwrap().url;
+        let download_url = &item
+            .downloads
+            .as_ref()
+            .expect("cannot download a release with no downloads")
+            .get(audio_format)
+            .unwrap()
+            .url;
         let res = self.request(Method::GET, download_url)?;
 
         let len = res.content_length().unwrap();

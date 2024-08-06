@@ -15,7 +15,7 @@ const FORMAT: &str = "%d %b %Y %T %Z";
 
 #[derive(Clone, Deserialize, Debug)]
 pub struct DigitalItem {
-    pub downloads: HashMap<String, DigitalItemDownload>,
+    pub downloads: Option<HashMap<String, DigitalItemDownload>>,
     pub package_release_date: Option<String>,
     pub title: String,
     pub artist: String,

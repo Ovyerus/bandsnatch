@@ -160,13 +160,19 @@ pub fn command(
                         Ok(Some(item)) => item,
                         Ok(None) => {
                             let cache = cache.lock().unwrap();
-                            // warn that item doesnt exist
                             warn!("Could not find digital item for {id}");
                             skip_err!(cache.add(&id, "UNKNOWN"));
                             continue;
                         }
                         Err(_) => continue,
                     };
+
+                    if let None = item.downloads {
+                        let cache = cache.lock().unwrap();
+                        warn!("Skipping {id}, does not have any downloads");
+                        skip_err!(cache.add(&id, "No downloads"));
+                        continue;
+                    }
 
                     if dry_run {
                         let results_lock = dry_run_results.lock();
