@@ -266,7 +266,6 @@ impl Api {
         let res = self.request(Method::GET, download_url)?;
 
         let len = res.content_length().unwrap();
-        // let len = res.header("Content-Length").unwrap().parse()?;
         let full_title = format!("{} - {}", item.title, item.artist);
         let pb = m.add(
             indicatif::ProgressBar::new(len)
@@ -277,11 +276,19 @@ impl Api {
                 ),
         );
 
-        let disposition = res.headers().get(CONTENT_DISPOSITION).unwrap();
+        let disposition = res.headers().get(CONTENT_DISPOSITION);
+
+        if let None = disposition {
+            pb.finish_and_clear();
+            return Err(
+                format!("could not download {full_title} when using url `{download_url}`").into(),
+            );
+        }
+
         // `HeaderValue::to_str` only handles valid ASCII bytes, and Bandcamp
         // chooses to put Unicode into the content-disposition for some reason,
         // so need to handle ourselves.
-        let content = str::from_utf8(disposition.as_bytes())?;
+        let content = str::from_utf8(disposition.unwrap().as_bytes())?;
         // Should probably use a thing to properly parse the content of content disposition.
         let filename = util::slice_string(
             content

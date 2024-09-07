@@ -11,6 +11,8 @@ and this project adheres to
 ### Fixed
 
 - Skip over releases that don't have any downloads.
+- Warn when failing to get `Content-Disposition` header, indicating the download
+  is bad.
 
 ## [0.3.2] - 2024-07-16
 
