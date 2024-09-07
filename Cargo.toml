@@ -1,9 +1,9 @@
 [package]
 name = "bandsnatch"
-version = "0.3.2"
+version = "0.3.3"
 edition = "2021"
 description = "A CLI batch downloader for your Bandcamp collection"
-authors = ["Michael Mitchell <michael@ovyerus.com>"]
+authors = ["Ashlynne Mitchell <ovy@ovyerus.com>"]
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/Ovyerus/bandsnatch"
