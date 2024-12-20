@@ -139,8 +139,6 @@ pub fn command(
     let m = Arc::new(MultiProgress::new());
     let dry_run_results = Arc::new(Mutex::new(Vec::<String>::new()));
 
-    // TODO:  dry_run
-
     thread::scope(|scope| {
         for i in 0..jobs {
             let api = api.clone();
