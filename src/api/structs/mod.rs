@@ -17,7 +17,20 @@ pub struct ParsedFanpageData {
     pub collection_data: CollectionData,
     /// Data about items in the user's music collection that have been hidden.
     pub hidden_data: CollectionData,
-    // pub item_cache: ItemCache,
+    pub item_cache: ItemCache,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ItemCache {
+    pub collection: HashMap<String, Item>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Item {
+    pub sale_item_id: u64,
+    pub sale_item_type: String,
+    pub band_name: String,
+    pub item_title: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -35,26 +48,13 @@ pub struct CollectionData {
     pub redownload_urls: Option<DownloadsMap>,
 }
 
-// #[derive(Deserialize, Debug)]
-// pub struct ItemCache {
-//     pub collection: HashMap<String, CachedItem>,
-//     pub hidden: HashMap<String, CachedItem>,
-// }
-
-// #[derive(Deserialize, Debug)]
-// pub struct CachedItem {
-//     #[serde(deserialize_with = "deserialize_string_from_number")]
-//     pub sale_item_id: String,
-//     pub band_name: String,
-//     pub item_title: String,
-// }
-
 /// Structure of the data returned from Bandcamp's collection API.
 #[derive(Deserialize, Debug)]
 pub struct ParsedCollectionItems {
     pub more_available: bool,
     pub last_token: String,
     pub redownload_urls: DownloadsMap,
+    pub items: Vec<Item>,
 }
 
 #[derive(Deserialize, Debug)]

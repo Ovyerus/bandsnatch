@@ -97,8 +97,31 @@ impl Api {
         Ok(response)
     }
 
+    /// Filters the download map by optional artist or album filters.
+    fn filter_download_map<'a>(
+        unfiltered: Option<DownloadsMap>,
+        items: &'a Vec<&'a Item>,
+        album: Option<&String>,
+        artist: Option<&String>
+    ) -> DownloadsMap {
+        unfiltered
+            .iter()
+            .flatten()
+            .filter_map(|(id, url)| {
+                items.iter().find(|v| &format!("{}{}", v.sale_item_type, v.sale_item_id) == id)
+                    .filter(|item| {
+                        artist.is_none_or(|v| item.band_name.eq_ignore_ascii_case(v))
+                    })
+                    .filter(|item| {
+                        album.is_none_or(|v| item.item_title.eq_ignore_ascii_case(v))
+                    })
+                    .map(|_| (id.clone(), url.clone()))
+            })
+            .collect::<DownloadsMap>()
+    }
+
     /// Scrape a user's Bandcamp page to find download urls
-    pub fn get_download_urls(&self, name: &str) -> Result<BandcampPage, Box<dyn Error>> {
+    pub fn get_download_urls(&self, name: &str, artist: Option<&String>, album: Option<&String>) -> Result<BandcampPage, Box<dyn Error>> {
         debug!("`get_download_urls` for Bandcamp page '{name}'");
 
         let body = self.request(Method::GET, &Self::bc_path(name))?.text()?;
@@ -115,6 +138,8 @@ impl Api {
             .expect("Failed to deserialise collection page data blob.");
         debug!("Successfully fetched Bandcamp page, and found + deserialised data blob");
 
+        let items = fanpage_data.item_cache.collection.values().collect::<Vec<&Item>>();
+
         match fanpage_data.fan_data.is_own_page {
             Some(true) => (),
             _ => bail!(format!(
@@ -123,11 +148,7 @@ impl Api {
         }
 
         // TODO: make sure this exists
-        let mut collection = fanpage_data
-            .collection_data
-            .redownload_urls
-            .clone()
-            .unwrap();
+        let mut collection = Self::filter_download_map(fanpage_data.collection_data.redownload_urls.clone(), &items, album, artist);
 
         let skip_hidden_items = true;
         if skip_hidden_items {
@@ -142,7 +163,7 @@ impl Api {
                 // This should never be `None` thanks to the comparison above.
                 fanpage_data.collection_data.item_count.unwrap()
             );
-            let rest = self.get_rest_downloads_in_collection(&fanpage_data, "collection_items")?;
+            let rest = self.get_rest_downloads_in_collection(&fanpage_data, "collection_items", album, artist)?;
             collection.extend(rest);
         }
 
@@ -153,7 +174,7 @@ impl Api {
                 "Too many in `hidden_data`, and we're told not to skip, so we need to paginate ({} total)",
                 fanpage_data.hidden_data.item_count.unwrap()
             );
-            let rest = self.get_rest_downloads_in_collection(&fanpage_data, "hidden_items")?;
+            let rest = self.get_rest_downloads_in_collection(&fanpage_data, "hidden_items", album, artist)?;
             collection.extend(rest);
         }
 
@@ -171,6 +192,8 @@ impl Api {
         &self,
         data: &ParsedFanpageData,
         collection_name: &str,
+        album: Option<&String>,
+        artist: Option<&String>,
     ) -> Result<DownloadsMap, Box<dyn Error>> {
         debug!("Paginating results for {collection_name}");
         let collection_data = match collection_name {
@@ -199,8 +222,12 @@ impl Api {
                 .send()?
                 .json::<ParsedCollectionItems>()?;
 
-            trace!("Collected {} items", body.redownload_urls.clone().len());
-            collection.extend(body.redownload_urls);
+            let items = body.items.iter().by_ref().collect::<Vec<_>>();
+            let redownload_urls = Self::filter_download_map(Some(body.redownload_urls), &items, album, artist);
+            trace!("Collected {} items", redownload_urls.len());
+
+
+            collection.extend(redownload_urls);
             more_available = body.more_available;
             last_token = body.last_token;
         }
