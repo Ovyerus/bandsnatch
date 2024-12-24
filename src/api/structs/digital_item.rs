@@ -1,6 +1,6 @@
 use crate::util::make_string_fs_safe;
 
-use chrono::{DateTime, Datelike};
+use chrono::{DateTime, Datelike, NaiveDateTime};
 use serde::{self, Deserialize};
 use std::{collections::HashMap, path::Path};
 
@@ -47,9 +47,12 @@ impl DigitalItem {
 
     pub fn release_year(&self) -> String {
         match &self.package_release_date {
-            Some(d) => match DateTime::parse_from_str(d, FORMAT) {
-                Ok(dt) => dt.year().to_string(),
-                Err(_) => String::from("0000"),
+            Some(d) => match NaiveDateTime::parse_from_str(d, FORMAT) {
+                Ok(dt) => dt.and_utc().year().to_string(),
+                Err(err) => {
+                    debug!("Failed to parse date time: {}", err);
+                    String::from("0000")
+                },
             },
             None => String::from("0000"),
         }
