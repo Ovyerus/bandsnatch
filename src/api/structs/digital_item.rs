@@ -1,6 +1,6 @@
 use crate::util::make_string_fs_safe;
 
-use chrono::{DateTime, Datelike, NaiveDateTime};
+use chrono::{Datelike, NaiveDateTime};
 use serde::{self, Deserialize};
 use std::{collections::HashMap, path::Path};
 
