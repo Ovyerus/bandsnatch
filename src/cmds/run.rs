@@ -34,6 +34,12 @@ macro_rules! skip_err {
 
 #[derive(Debug, ClapArgs)]
 pub struct Args {
+    #[arg(long, env = "BS_ALBUM")]
+    album: Option<String>,
+
+    #[arg(long, env = "BS_ARTIST")]
+    artist: Option<String>,
+
     /// The audio format to download the files in.
     #[arg(short = 'f', long = "format", value_parser = PossibleValuesParser::new(FORMATS), env = "BS_FORMAT")]
     audio_format: String,
@@ -78,6 +84,8 @@ pub struct Args {
 
 pub fn command(
     Args {
+        album,
+        artist,
         audio_format,
         cookies,
         debug,
@@ -117,7 +125,7 @@ pub fn command(
         root.join("bandcamp-collection-downloader.cache"),
     )));
 
-    let download_urls = api.get_download_urls(&user)?.download_urls;
+    let download_urls = api.get_download_urls(&user, artist.as_ref(), album.as_ref())?.download_urls;
     let items = {
         // Lock gets freed after this block.
         let cache_content = cache.lock().unwrap().content()?;
@@ -138,8 +146,6 @@ pub fn command(
     let queue = util::WorkQueue::from_vec(items);
     let m = Arc::new(MultiProgress::new());
     let dry_run_results = Arc::new(Mutex::new(Vec::<String>::new()));
-
-    // TODO:  dry_run
 
     thread::scope(|scope| {
         for i in 0..jobs {

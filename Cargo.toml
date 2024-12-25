@@ -2,6 +2,7 @@
 name = "bandsnatch"
 version = "0.3.3"
 edition = "2021"
+rust-version = "1.82.0"
 description = "A CLI batch downloader for your Bandcamp collection"
 authors = ["Ashlynne Mitchell <ovy@ovyerus.com>"]
 license = "MIT"
