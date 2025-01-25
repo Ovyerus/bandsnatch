@@ -102,27 +102,24 @@ impl Api {
         unfiltered: Option<DownloadsMap>,
         items: &'a Vec<&'a Item>,
         album: Option<&String>,
-        artist: Option<&String>
+        artist: Option<&String>,
     ) -> DownloadsMap {
         unfiltered
             .iter()
             .flatten()
             .filter_map(|(id, url)| {
-                items.iter().find(|v| &format!("{}{}", v.sale_item_type, v.sale_item_id) == id)
-                    .filter(|item| {
-                        artist.is_none_or(|v| item.band_name.eq_ignore_ascii_case(v))
-                    })
-                    .filter(|item| {
-                        album.is_none_or(|v| item.item_title.eq_ignore_ascii_case(v))
-                    })
+                items
+                    .iter()
+                    .find(|v| &format!("{}{}", v.sale_item_type, v.sale_item_id) == id)
+                    .filter(|item| artist.is_none_or(|v| item.band_name.eq_ignore_ascii_case(v)))
+                    .filter(|item| album.is_none_or(|v| item.item_title.eq_ignore_ascii_case(v)))
                     .map(|_| (id.clone(), url.clone()))
             })
             .collect::<DownloadsMap>()
     }
 
-    /// Scrape a user's Bandcamp page to find download urls
-    pub fn get_download_urls(&self, name: &str, artist: Option<&String>, album: Option<&String>) -> Result<BandcampPage, Box<dyn Error>> {
-        debug!("`get_download_urls` for Bandcamp page '{name}'");
+    fn download_fanpage_data(&self, name: &str) -> Result<ParsedFanpageData, Box<dyn Error>> {
+        debug!("`download_fanpage_data` for Bandcamp page '{name}'");
 
         let body = self.request(Method::GET, &Self::bc_path(name))?.text()?;
         let soup = Soup::new(&body);
@@ -138,7 +135,24 @@ impl Api {
             .expect("Failed to deserialise collection page data blob.");
         debug!("Successfully fetched Bandcamp page, and found + deserialised data blob");
 
-        let items = fanpage_data.item_cache.collection.values().collect::<Vec<&Item>>();
+        Ok(fanpage_data)
+    }
+
+    /// Scrape a user's Bandcamp page to find download urls
+    pub fn get_download_urls(
+        &self,
+        name: &str,
+        artist: Option<&String>,
+        album: Option<&String>,
+    ) -> Result<BandcampPage, Box<dyn Error>> {
+        debug!("`get_download_urls` for Bandcamp page '{name}'");
+
+        let fanpage_data = self.download_fanpage_data(&name)?;
+        let items = fanpage_data
+            .item_cache
+            .collection
+            .values()
+            .collect::<Vec<&Item>>();
 
         match fanpage_data.fan_data.is_own_page {
             Some(true) => (),
@@ -147,8 +161,12 @@ impl Api {
             )),
         }
 
-        // TODO: make sure this exists
-        let mut collection = Self::filter_download_map(fanpage_data.collection_data.redownload_urls.clone(), &items, album, artist);
+        let mut collection = Self::filter_download_map(
+            fanpage_data.collection_data.redownload_urls.clone(),
+            &items,
+            album,
+            artist,
+        );
 
         let skip_hidden_items = true;
         if skip_hidden_items {
@@ -163,7 +181,12 @@ impl Api {
                 // This should never be `None` thanks to the comparison above.
                 fanpage_data.collection_data.item_count.unwrap()
             );
-            let rest = self.get_rest_downloads_in_collection(&fanpage_data, "collection_items", album, artist)?;
+            let rest = self.get_rest_downloads_in_collection(
+                &fanpage_data,
+                "collection_items",
+                album,
+                artist,
+            )?;
             collection.extend(rest);
         }
 
@@ -174,11 +197,14 @@ impl Api {
                 "Too many in `hidden_data`, and we're told not to skip, so we need to paginate ({} total)",
                 fanpage_data.hidden_data.item_count.unwrap()
             );
-            let rest = self.get_rest_downloads_in_collection(&fanpage_data, "hidden_items", album, artist)?;
+            let rest = self.get_rest_downloads_in_collection(
+                &fanpage_data,
+                "hidden_items",
+                album,
+                artist,
+            )?;
             collection.extend(rest);
         }
-
-        // let title = soup.tag("title").find().unwrap().text();
 
         debug!("Successfully retrieved all download URLs");
         Ok(BandcampPage {
@@ -223,9 +249,9 @@ impl Api {
                 .json::<ParsedCollectionItems>()?;
 
             let items = body.items.iter().by_ref().collect::<Vec<_>>();
-            let redownload_urls = Self::filter_download_map(Some(body.redownload_urls), &items, album, artist);
+            let redownload_urls =
+                Self::filter_download_map(Some(body.redownload_urls), &items, album, artist);
             trace!("Collected {} items", redownload_urls.len());
-
 
             collection.extend(redownload_urls);
             more_available = body.more_available;

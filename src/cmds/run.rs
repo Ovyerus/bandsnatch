@@ -82,28 +82,14 @@ pub struct Args {
     user: String,
 }
 
-pub fn command(
-    Args {
-        album,
-        artist,
-        audio_format,
-        cookies,
-        debug,
-        dry_run,
-        force,
-        jobs,
-        limit,
-        output_folder,
-        user,
-    }: Args,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let cookies_file = cookies.map(|p| {
+pub fn command(args: Args) -> Result<(), Box<dyn std::error::Error>> {
+    let cookies_file = args.cookies.map(|p| {
         let expanded = shellexpand::tilde(&p);
         expanded.into_owned()
     });
-    let root = shellexpand::tilde(&output_folder);
+    let root = shellexpand::tilde(&args.output_folder);
     let root = Path::new(root.as_ref());
-    let limit = limit.unwrap_or(usize::MAX);
+    let limit = args.limit.unwrap_or(usize::MAX);
 
     let root_exists = match fs::metadata(root) {
         Ok(d) => Some(d.is_dir()),
@@ -125,19 +111,21 @@ pub fn command(
         root.join("bandcamp-collection-downloader.cache"),
     )));
 
-    let download_urls = api.get_download_urls(&user, artist.as_ref(), album.as_ref())?.download_urls;
+    let download_urls = api
+        .get_download_urls(&args.user, args.artist.as_ref(), args.album.as_ref())?
+        .download_urls;
     let items = {
         // Lock gets freed after this block.
         let cache_content = cache.lock().unwrap().content()?;
 
         download_urls
             .into_iter()
-            .filter(|(x, _)| force || !cache_content.contains(x))
+            .filter(|(x, _)| args.force || !cache_content.contains(x))
             .take(limit)
             .collect::<Vec<_>>()
     };
 
-    if dry_run {
+    if args.dry_run {
         println!("Fetching information for {} found releases", items.len());
     } else {
         println!("Trying to download {} releases", items.len());
@@ -148,12 +136,12 @@ pub fn command(
     let dry_run_results = Arc::new(Mutex::new(Vec::<String>::new()));
 
     thread::scope(|scope| {
-        for i in 0..jobs {
+        for i in 0..args.jobs {
             let api = api.clone();
             let cache = cache.clone();
             let m = m.clone();
             let queue = queue.clone();
-            let audio_format = audio_format.clone();
+            let audio_format = args.audio_format.clone();
             let dry_run_results = dry_run_results.clone();
 
             // somehow re-create thread if it panics
@@ -162,7 +150,7 @@ pub fn command(
                     m.suspend(|| debug!("thread {i} taking {id}"));
 
                     // skip_err!
-                    let item = match api.get_digital_item(&url, &debug) {
+                    let item = match api.get_digital_item(&url, &args.debug) {
                         Ok(Some(item)) => item,
                         Ok(None) => {
                             let cache = cache.lock().unwrap();
@@ -180,7 +168,7 @@ pub fn command(
                         continue;
                     }
 
-                    if dry_run {
+                    if args.dry_run {
                         let results_lock = dry_run_results.lock();
                         if let Ok(mut results) = results_lock {
                             results.push(format!("{id}, {} - {}", item.title, item.artist))
@@ -224,7 +212,7 @@ pub fn command(
     })
     .unwrap();
 
-    if dry_run {
+    if args.dry_run {
         println!("{}", dry_run_results.lock().unwrap().join("\n"));
         return Ok(());
     }

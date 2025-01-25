@@ -27,9 +27,18 @@ pub struct ItemCache {
 
 #[derive(Deserialize, Debug)]
 pub struct Item {
+    //     /// Used in collection_data.sequence, and tracklist. Probably the most unique field?
+    //     #[serde(deserialize_with = "deserialize_string_from_number")]
+    //     pub item_id: String,
+    //     /// The type of the item: "album" or "track".
+    //     pub item_type: String,
+    /// Used in `id => download url` mapping.
     pub sale_item_id: u64,
+    /// Used in `id => download url` mapping, as the type of item (no idea what it means).
     pub sale_item_type: String,
+    /// The band or artist who released the item.
     pub band_name: String,
+    /// The name of the item.
     pub item_title: String,
 }
 
