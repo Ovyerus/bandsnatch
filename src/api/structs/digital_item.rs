@@ -60,7 +60,7 @@ impl DigitalItem {
 
     pub fn destination_path<P: AsRef<Path>>(&self, root: P) -> String {
         root.as_ref()
-            .join(&self.artist)
+            .join(make_string_fs_safe(&self.artist))
             .join(format!(
                 "{} ({})",
                 make_string_fs_safe(&self.title),
