@@ -149,6 +149,11 @@ pkgin install bandsnatch
 Pull this repository and run `cargo build --release`, and look for the
 `bandsnatch` binary in `./target/release/`.
 
+## Developer reference
+
+The [Bandcamp collection JSON field map](docs/collection-json.md) documents the
+`pagedata` blob and the fields Bandsnatch reads from it.
+
 ## License
 
 This program is licensed under the MIT license (see [LICENSE](./LICENSE) or
