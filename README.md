@@ -70,6 +70,21 @@ also create a `bandcamp-collection-downloader.cache` in the same directory,
 which then gets read on future runs in order to skip items it has already
 retrieved.
 
+### Output folders
+
+Downloads are stored under `<output>/<artist>/<title> (<year>) [<collection-id>]`.
+The collection ID keeps releases with the same artist, title, and year in
+separate folders, including when downloads run concurrently.
+
+Existing folders from older versions are not renamed or deleted. Cached
+downloads remain skipped; if you use `--force`, the new download goes into an
+ID-suffixed folder instead of overwriting the old one. Check the new download
+before removing or moving any old folder.
+
+If an earlier run merged same-named releases, use `--force --album "<title>"`
+and `--artist "<artist>"` with your usual arguments to re-download them into
+separate folders.
+
 ## Authentication
 
 Because Bandsnatch does not manage logging into Bandcamp itself, you need to

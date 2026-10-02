@@ -220,7 +220,7 @@ pub fn command(
                     ))
                     .unwrap();
 
-                    let path = item.destination_path(root);
+                    let path = item.destination_path(root, &id);
                     skip_err!(fs::create_dir_all(&path));
 
                     // TODO: separate cache for failed downloads.

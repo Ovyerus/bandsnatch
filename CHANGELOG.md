@@ -16,6 +16,8 @@ and this project adheres to
 
 - Make download titles filesystem safe (PR #21).
 - Redownload cached preorders when Bandcamp marks them as released (#29).
+- Add release IDs to download folder names to avoid duplicately-named releases
+  conflicting (#23).
 
 ## [0.3.3] - 2024-09-07
 
