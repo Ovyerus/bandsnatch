@@ -8,6 +8,7 @@ use pollster::FutureExt as _;
 use reqwest::blocking as reqwest;
 use serde::Serialize;
 use soup::prelude::*;
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::BufReader;
@@ -21,8 +22,13 @@ use crate::cookies;
 use crate::util;
 
 pub struct BandcampPage {
-    pub download_urls: DownloadsMap,
-    // pub page_name: String,
+    pub download_urls: HashMap<String, CollectionDownload>,
+}
+
+#[derive(Clone)]
+pub struct CollectionDownload {
+    pub url: String,
+    pub is_preorder: bool,
 }
 
 /// Body used to paginate through Bandcamp's collection API.
@@ -98,30 +104,41 @@ impl Api {
     }
 
     /// Filters the download map by optional artist or album filters.
-    fn filter_download_map<'a>(
+    fn filter_download_map(
         unfiltered: Option<DownloadsMap>,
-        items: &'a Vec<&'a Item>,
+        items: &[&Item],
         album: Option<&String>,
-        artist: Option<&String>
-    ) -> DownloadsMap {
+        artist: Option<&String>,
+    ) -> HashMap<String, CollectionDownload> {
         unfiltered
-            .iter()
+            .into_iter()
             .flatten()
             .filter_map(|(id, url)| {
-                items.iter().find(|v| &format!("{}{}", v.sale_item_type, v.sale_item_id) == id)
-                    .filter(|item| {
-                        artist.is_none_or(|v| item.band_name.eq_ignore_ascii_case(v))
+                items
+                    .iter()
+                    .find(|item| format!("{}{}", item.sale_item_type, item.sale_item_id) == id)
+                    .filter(|item| artist.is_none_or(|v| item.band_name.eq_ignore_ascii_case(v)))
+                    .filter(|item| album.is_none_or(|v| item.item_title.eq_ignore_ascii_case(v)))
+                    .map(|item| {
+                        (
+                            id,
+                            CollectionDownload {
+                                url,
+                                is_preorder: item.is_preorder,
+                            },
+                        )
                     })
-                    .filter(|item| {
-                        album.is_none_or(|v| item.item_title.eq_ignore_ascii_case(v))
-                    })
-                    .map(|_| (id.clone(), url.clone()))
             })
-            .collect::<DownloadsMap>()
+            .collect()
     }
 
     /// Scrape a user's Bandcamp page to find download urls
-    pub fn get_download_urls(&self, name: &str, artist: Option<&String>, album: Option<&String>) -> Result<BandcampPage, Box<dyn Error>> {
+    pub fn get_download_urls(
+        &self,
+        name: &str,
+        artist: Option<&String>,
+        album: Option<&String>,
+    ) -> Result<BandcampPage, Box<dyn Error>> {
         debug!("`get_download_urls` for Bandcamp page '{name}'");
 
         let body = self.request(Method::GET, &Self::bc_path(name))?.text()?;
@@ -134,11 +151,15 @@ impl Api {
         let data_blob = data_el
             .get("data-blob")
             .expect("Failed to extract data from element on collection page.");
-        let fanpage_data: ParsedFanpageData = serde_json::from_str(&data_blob)
+        let mut fanpage_data: ParsedFanpageData = serde_json::from_str(&data_blob)
             .expect("Failed to deserialise collection page data blob.");
         debug!("Successfully fetched Bandcamp page, and found + deserialised data blob");
 
-        let items = fanpage_data.item_cache.collection.values().collect::<Vec<&Item>>();
+        let items = fanpage_data
+            .item_cache
+            .collection
+            .values()
+            .collect::<Vec<&Item>>();
 
         match fanpage_data.fan_data.is_own_page {
             Some(true) => (),
@@ -148,7 +169,12 @@ impl Api {
         }
 
         // TODO: make sure this exists
-        let mut collection = Self::filter_download_map(fanpage_data.collection_data.redownload_urls.clone(), &items, album, artist);
+        let mut collection = Self::filter_download_map(
+            fanpage_data.collection_data.redownload_urls.take(),
+            &items,
+            album,
+            artist,
+        );
 
         let skip_hidden_items = true;
         if skip_hidden_items {
@@ -163,7 +189,12 @@ impl Api {
                 // This should never be `None` thanks to the comparison above.
                 fanpage_data.collection_data.item_count.unwrap()
             );
-            let rest = self.get_rest_downloads_in_collection(&fanpage_data, "collection_items", album, artist)?;
+            let rest = self.get_rest_downloads_in_collection(
+                &fanpage_data,
+                "collection_items",
+                album,
+                artist,
+            )?;
             collection.extend(rest);
         }
 
@@ -174,7 +205,12 @@ impl Api {
                 "Too many in `hidden_data`, and we're told not to skip, so we need to paginate ({} total)",
                 fanpage_data.hidden_data.item_count.unwrap()
             );
-            let rest = self.get_rest_downloads_in_collection(&fanpage_data, "hidden_items", album, artist)?;
+            let rest = self.get_rest_downloads_in_collection(
+                &fanpage_data,
+                "hidden_items",
+                album,
+                artist,
+            )?;
             collection.extend(rest);
         }
 
@@ -194,7 +230,7 @@ impl Api {
         collection_name: &str,
         album: Option<&String>,
         artist: Option<&String>,
-    ) -> Result<DownloadsMap, Box<dyn Error>> {
+    ) -> Result<HashMap<String, CollectionDownload>, Box<dyn Error>> {
         debug!("Paginating results for {collection_name}");
         let collection_data = match collection_name {
             "collection_items" => &data.collection_data,
@@ -204,7 +240,7 @@ impl Api {
 
         let mut last_token = collection_data.last_token.clone().unwrap();
         let mut more_available = true;
-        let mut collection = DownloadsMap::new();
+        let mut collection = HashMap::new();
 
         while more_available {
             trace!("More items to collect, looping...");
@@ -223,9 +259,9 @@ impl Api {
                 .json::<ParsedCollectionItems>()?;
 
             let items = body.items.iter().by_ref().collect::<Vec<_>>();
-            let redownload_urls = Self::filter_download_map(Some(body.redownload_urls), &items, album, artist);
+            let redownload_urls =
+                Self::filter_download_map(Some(body.redownload_urls), &items, album, artist);
             trace!("Collected {} items", redownload_urls.len());
-
 
             collection.extend(redownload_urls);
             more_available = body.more_available;

@@ -52,7 +52,7 @@ impl DigitalItem {
                 Err(err) => {
                     debug!("Failed to parse date time: {}", err);
                     String::from("0000")
-                },
+                }
             },
             None => String::from("0000"),
         }

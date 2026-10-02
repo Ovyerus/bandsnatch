@@ -2,12 +2,16 @@ use clap::{builder::PossibleValuesParser, Args as ClapArgs};
 use crossbeam_utils::thread;
 use indicatif::MultiProgress;
 use std::{
-    fs,
+    fs, io,
     path::Path,
     sync::{Arc, Mutex},
 };
 
-use crate::{api, cache, cookies, util};
+use crate::{
+    api,
+    cache::{self, CacheEntry},
+    cookies, util,
+};
 
 const FORMATS: &[&str] = &[
     "flac",
@@ -125,14 +129,24 @@ pub fn command(
         root.join("bandcamp-collection-downloader.cache"),
     )));
 
-    let download_urls = api.get_download_urls(&user, artist.as_ref(), album.as_ref())?.download_urls;
+    let download_urls = api
+        .get_download_urls(&user, artist.as_ref(), album.as_ref())?
+        .download_urls;
     let items = {
         // Lock gets freed after this block.
-        let cache_content = cache.lock().unwrap().content()?;
+        let cache = cache
+            .lock()
+            .map_err(|_| io::Error::other("cache lock poisoned"))?;
 
         download_urls
             .into_iter()
-            .filter(|(x, _)| force || !cache_content.contains(x))
+            .filter(|(id, download)| {
+                force
+                    || cache
+                        .content()
+                        .get(id)
+                        .is_none_or(|entry| entry.needs_download(download.is_preorder))
+            })
             .take(limit)
             .collect::<Vec<_>>()
     };
@@ -158,35 +172,42 @@ pub fn command(
 
             // somehow re-create thread if it panics
             scope.spawn(move |_| {
-                while let Some((id, url)) = queue.get_work() {
+                while let Some((id, download)) = queue.get_work() {
                     m.suspend(|| debug!("thread {i} taking {id}"));
+                    let cache_entry = if download.is_preorder {
+                        CacheEntry::Preorder
+                    } else {
+                        CacheEntry::Complete
+                    };
 
                     // skip_err!
-                    let item = match api.get_digital_item(&url, &debug) {
+                    let item = match api.get_digital_item(&download.url, &debug) {
                         Ok(Some(item)) => item,
                         Ok(None) => {
-                            let cache = cache.lock().unwrap();
+                            let mut cache = skip_err!(cache
+                                .lock()
+                                .map_err(|_| io::Error::other("cache lock poisoned")));
                             warn!("Could not find digital item for {id}");
-                            skip_err!(cache.add(&id, "UNKNOWN"));
+                            skip_err!(cache.add(&id, "UNKNOWN", cache_entry));
                             continue;
                         }
                         Err(_) => continue,
                     };
 
                     if let None = item.downloads {
-                        let cache = cache.lock().unwrap();
+                        let mut cache = skip_err!(cache
+                            .lock()
+                            .map_err(|_| io::Error::other("cache lock poisoned")));
                         warn!("Skipping {id}, does not have any downloads");
-                        skip_err!(cache.add(&id, "No downloads"));
+                        skip_err!(cache.add(&id, "No downloads", cache_entry));
                         continue;
                     }
 
                     if dry_run {
-                        let results_lock = dry_run_results.lock();
-                        if let Ok(mut results) = results_lock {
-                            results.push(format!("{id}, {} - {}", item.title, item.artist))
-                        } else {
-                            panic!("dry_run_results is poisoned!!")
-                        }
+                        let mut results = skip_err!(dry_run_results
+                            .lock()
+                            .map_err(|_| io::Error::other("dry-run results lock poisoned")));
+                        results.push(format!("{id}, {} - {}", item.title, item.artist));
                         continue;
                     }
 
@@ -206,18 +227,19 @@ pub fn command(
                     // TODO: retries
                     skip_err!(api.download_item(&item, &path, &audio_format, &m));
 
-                    let cache = cache.lock().unwrap();
-                    if !cache.content().unwrap().contains(&id) {
-                        skip_err!(cache.add(
-                            &id,
-                            &format!(
-                                "{} ({}) by {}",
-                                item.title,
-                                item.release_year(),
-                                item.artist
-                            )
-                        ));
-                    }
+                    let mut cache = skip_err!(cache
+                        .lock()
+                        .map_err(|_| io::Error::other("cache lock poisoned")));
+                    skip_err!(cache.add(
+                        &id,
+                        &format!(
+                            "{} ({}) by {}",
+                            item.title,
+                            item.release_year(),
+                            item.artist
+                        ),
+                        cache_entry,
+                    ));
                 }
             });
         }
@@ -225,7 +247,10 @@ pub fn command(
     .unwrap();
 
     if dry_run {
-        println!("{}", dry_run_results.lock().unwrap().join("\n"));
+        let results = dry_run_results
+            .lock()
+            .map_err(|_| io::Error::other("dry-run results lock poisoned"))?;
+        println!("{}", results.join("\n"));
         return Ok(());
     }
 

@@ -31,6 +31,9 @@ pub struct Item {
     pub sale_item_type: String,
     pub band_name: String,
     pub item_title: String,
+    /// Whether Bandcamp currently exposes this item as a preorder.
+    #[serde(default)]
+    pub is_preorder: bool,
 }
 
 #[derive(Deserialize, Debug)]

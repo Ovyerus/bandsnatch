@@ -14,7 +14,8 @@ and this project adheres to
 
 ### Fixed
 
-- Make download titles filesystem safe (#21).
+- Make download titles filesystem safe (PR #21).
+- Redownload cached preorders when Bandcamp marks them as released (#29).
 
 ## [0.3.3] - 2024-09-07
 
