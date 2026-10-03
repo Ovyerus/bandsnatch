@@ -40,24 +40,6 @@ jobs:
           name: bandsnatch-linux-${{ matrix.platform.name }}
           path: ./result/bin/bandsnatch
 
-  build-macos-x86:
-    runs-on: macos-13
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: cachix/install-nix-action@v26
-        with:
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - run: nix build
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: bandsnatch-macos-x86_64
-          path: ./result/bin/bandsnatch
-
   build-macos-arm:
     runs-on: macos-14
     steps:
@@ -102,7 +84,6 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     needs:
       - build-linux
-      - build-macos-x86
       - build-macos-arm
       - build-windows
     steps:
@@ -115,7 +96,6 @@ jobs:
 
           declare -a arr=(
             "windows-x86_64"
-            "macos-x86_64"
             "macos-aarch64"
             "linux-x86_64"
             "linux-aarch64"

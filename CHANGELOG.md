@@ -19,6 +19,11 @@ and this project adheres to
 - Add release IDs to download folder names to avoid duplicately-named releases
   conflicting (#23).
 
+### Removed
+
+- Drop Intel macOS support from Nix builds, CI, and release binaries. macOS
+  builds now target Apple Silicon only.
+
 ## [0.3.3] - 2024-09-07
 
 ### Fixed

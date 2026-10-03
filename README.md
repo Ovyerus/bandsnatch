@@ -107,7 +107,7 @@ bandsnatch will try to automatically load the cookies from there if possible
 
 Binary builds of Bandsnatch are available on our
 [releases page](https://github.com/Ovyerus/bandsnatch/releases) for Windows, Mac
-(both ARM & Intel), and Linux (various architectures).
+(Apple Silicon), and Linux (various architectures).
 
 ### Nix flake
 

@@ -16,7 +16,6 @@
     buildTargets = {
       "x86_64-linux" = "x86_64-unknown-linux-musl";
       "aarch64-linux" = "aarch64-unknown-linux-musl";
-      "x86_64-darwin" = "x86_64-apple-darwin";
       "aarch64-darwin" = "aarch64-apple-darwin";
     };
 
@@ -43,10 +42,13 @@
     mkBandsnatch = hostSystem: targetSystem: let
       rustTarget = buildTargets.${targetSystem};
       pkgs = import nixpkgs {system = hostSystem;};
-      pkgsCross = import nixpkgs {
-        system = hostSystem;
-        crossSystem.config = rustTarget;
-      };
+      pkgsCross =
+        if pkgs.stdenv.hostPlatform.rust.rustcTarget == rustTarget
+        then pkgs
+        else import nixpkgs {
+          system = hostSystem;
+          crossSystem.config = rustTarget;
+        };
       fenixPkgs = fenix.packages.${hostSystem};
       toolchain = fenixPkgs.combine [
         fenixPkgs.stable.rustc
@@ -64,6 +66,10 @@
         src = ./.;
         strictDeps = true;
         doCheck = false;
+
+        buildInputs = pkgs.lib.optionals pkgsCross.stdenv.hostPlatform.isDarwin [
+          pkgsCross.libiconv
+        ];
 
         inherit TARGET_CC;
 
