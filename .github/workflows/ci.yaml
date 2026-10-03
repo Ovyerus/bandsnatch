@@ -15,10 +15,8 @@ jobs:
       matrix:
         platform:
           - name: x86_64
-            target: amd64
             runs-on: ubuntu-latest
           - name: aarch64
-            target: arm64
             runs-on: [self-hosted, linux, ARM64]
 
     runs-on: ${{ matrix.platform.runs-on }}
@@ -33,6 +31,20 @@ jobs:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - run: nix build
+
+      - name: Verify standalone Linux binary
+        run: |
+          nix shell --inputs-from . nixpkgs#binutils -c bash -euo pipefail <<'EOF'
+          binary=./result/bin/bandsnatch
+          headers="$(readelf -l "$binary")"
+          dynamic="$(readelf -d "$binary")"
+          if [[ "$headers" == *INTERP* || "$dynamic" == *"(NEEDED)"* ]]; then
+            echo "Linux release must not require a dynamic loader or shared libraries" >&2
+            exit 1
+          fi
+          "$binary" --version
+          "$binary" --help
+          EOF
 
       - name: Upload ${{ matrix.platform.name }}
         uses: actions/upload-artifact@v4
@@ -52,6 +64,23 @@ jobs:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - run: nix build
+
+      - name: Verify standalone macOS binary
+        run: |
+          binary=./result/bin/bandsnatch
+          dependencies="$(otool -L "$binary")"
+          printf '%s\n' "$dependencies"
+          while read -r library _; do
+            case "$library" in
+              "$binary":|/usr/lib/*|/System/Library/Frameworks/*) ;;
+              *)
+                echo "Unexpected macOS runtime dependency: $library" >&2
+                exit 1
+                ;;
+            esac
+          done <<< "$dependencies"
+          "$binary" --version
+          "$binary" --help
 
       - uses: actions/upload-artifact@v4
         with:
@@ -111,7 +140,7 @@ jobs:
               filename="bandsnatch-$target"
             fi
 
-            cp $src $filename
+            cp "$src" "$filename"
             sha256sum "$filename" >> "checksums.txt"
           done
 
