@@ -122,6 +122,27 @@ nix shell github:ovyerus/bandsnatch
 You can install it permanently with `nix profile install`, or by adding it to
 your NixOS/Home Manager configuration.
 
+The flake provides native builds for Apple Silicon macOS and x86_64/aarch64
+Linux. Linux binaries are statically linked with musl; macOS binaries statically
+link `libiconv` and dynamically link only Apple system libraries and frameworks.
+Neither requires Nix to run the release executable. Windows releases are built
+with Cargo/MSVC.
+The currently locked toolchain produces macOS binaries targeting macOS 14 or
+newer.
+
+To build locally with the same package definition used in CI:
+
+```sh
+nix build -L
+./result/bin/bandsnatch --help
+```
+
+For development, `nix develop` provides Cargo, rustc, rustfmt, and clippy from
+the same locked nixpkgs input as the package build. Use `cargo run -- --help`
+inside that shell. Linux development builds use the host libc; `nix build`
+produces the static release binary. The Rust build lives in `package.nix`;
+cross-compilation outputs are no longer provided.
+
 ### Homebrew
 
 `brew install ovyerus/tap/bandsnatch`

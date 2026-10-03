@@ -12,6 +12,11 @@ and this project adheres to
 
 - Add `--filter` flag to filter downloads by purchase date.
 
+### Changed
+
+- Use a native `package.nix` Rust builder and a matching nixpkgs development
+  toolchain instead of the Fenix/naersk cross-compilation matrix.
+
 ### Fixed
 
 - Make download titles filesystem safe (PR #21).
