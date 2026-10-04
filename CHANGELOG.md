@@ -23,6 +23,8 @@ and this project adheres to
 - Redownload cached preorders when Bandcamp marks them as released (#29).
 - Add release IDs to download folder names to avoid duplicately-named releases
   conflicting (#23).
+- Fix strict Windows builds by using `bail!` in statement position rather than
+  expression position.
 
 ### Removed
 
