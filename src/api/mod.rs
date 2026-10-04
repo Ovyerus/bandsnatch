@@ -163,9 +163,11 @@ impl Api {
 
         match fanpage_data.fan_data.is_own_page {
             Some(true) => (),
-            _ => bail!(format!(
-                r#"Failed to scrape collection data for "{name}" (`is_own_page` is false). Perhaps check your cookies, or your spelling."#
-            )),
+            _ => {
+                bail!(format!(
+                    r#"Failed to scrape collection data for "{name}" (`is_own_page` is false). Perhaps check your cookies, or your spelling."#
+                ));
+            }
         }
 
         // TODO: make sure this exists
@@ -235,7 +237,9 @@ impl Api {
         let collection_data = match collection_name {
             "collection_items" => &data.collection_data,
             "hidden_items" => &data.hidden_data,
-            x => bail!(format!(r#"unexpected value for `collection_name`: "{x}""#)),
+            x => {
+                bail!(format!(r#"unexpected value for `collection_name`: "{x}""#));
+            }
         };
 
         let mut last_token = collection_data.last_token.clone().unwrap();
@@ -304,7 +308,7 @@ impl Api {
                 println!("Run with `--debug` to see the full JSON blob.\n")
             }
 
-            bail!(format!("failed parsing {url}"))
+            bail!(format!("failed parsing {url}"));
         }
 
         let item = item_result.unwrap().digital_items.first().cloned();
