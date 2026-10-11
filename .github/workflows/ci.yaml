@@ -158,3 +158,113 @@ jobs:
           homebrew-tap: Ovyerus/homebrew-tap
         env:
           COMMITTER_TOKEN: ${{ secrets.TAP_COMMITTER_TOKEN }}
+
+  update-aur:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - build-linux
+      - build-macos-arm
+      - build-windows
+    permissions:
+      contents: read
+    container: archlinux:base-devel
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Install packaging tools
+        run: |
+          pacman -Syu --noconfirm --needed git rust pacman-contrib
+          useradd -m builder
+
+      - name: Clone AUR package
+        run: |
+          runuser -u builder -- git clone \
+            https://aur.archlinux.org/bandsnatch.git /home/builder/aur
+
+      - name: Update and check package
+        shell: bash
+        run: |
+          runuser -u builder -- bash -euo pipefail <<'EOF'
+          cd /home/builder/aur
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "AUR updates require a stable vMAJOR.MINOR.PATCH tag" >&2
+            exit 1
+          fi
+          version="${RELEASE_TAG#v}"
+          sed -i \
+            -e "s/^pkgver=.*/pkgver=$version/" \
+            -e 's/^pkgrel=.*/pkgrel=1/' PKGBUILD
+          # GCC LTO objects from ring/zstd cannot be linked by Rust's linker.
+          if ! grep -Fxq "options+=('!lto')" PKGBUILD; then
+            printf "\noptions+=('!lto')\n" >> PKGBUILD
+          fi
+          updpkgsums
+          makepkg --printsrcinfo > .SRCINFO
+          makepkg --force --noconfirm
+          "./src/bandsnatch-$version/target/release/bandsnatch" --version
+          EOF
+
+      - name: Upload checked AUR metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: aur-metadata
+          path: |
+            /home/builder/aur/PKGBUILD
+            /home/builder/aur/.SRCINFO
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  publish-aur:
+    # Never expose publishing credentials to PKGBUILD or upstream build scripts.
+    runs-on: ubuntu-latest
+    needs: update-aur
+    permissions:
+      contents: read
+    concurrency:
+      group: aur-bandsnatch
+      cancel-in-progress: false
+    env:
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - name: Download checked AUR metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: aur-metadata
+          path: aur-update
+
+      - name: Clone fresh AUR package
+        run: |
+          git clone https://aur.archlinux.org/bandsnatch.git aur
+          cp aur-update/PKGBUILD aur-update/.SRCINFO aur/
+
+      - name: Publish AUR update
+        shell: bash
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          if [[ -z "$AUR_SSH_PRIVATE_KEY" ]]; then
+            echo "Configure the AUR_SSH_PRIVATE_KEY repository secret" >&2
+            exit 1
+          fi
+          key="$(mktemp "$RUNNER_TEMP/aur-key.XXXXXX")"
+          known_hosts="$(mktemp "$RUNNER_TEMP/aur-hosts.XXXXXX")"
+          trap 'rm -f "$key" "$known_hosts"' EXIT
+          printf '%s\n' "$AUR_SSH_PRIVATE_KEY" > "$key"
+          # Ed25519 host key published at https://aur.archlinux.org/.
+          printf '%s\n' \
+            'aur.archlinux.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEuBKrPzbawxA/k2g6NcyV5jmqwJ2s+zpgZGZ7tpLIcN' \
+            > "$known_hosts"
+          export GIT_SSH_COMMAND="ssh -F /dev/null -i \"$key\" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=\"$known_hosts\""
+          cd aur
+          git config user.name 'Ovyerus'
+          git config user.email 'ovy@ovyerus.com'
+          git add PKGBUILD .SRCINFO
+          if git diff --cached --quiet; then
+            echo "AUR package is already up to date"
+            exit 0
+          fi
+          git commit -m "Update bandsnatch to ${RELEASE_TAG#v}"
+          git remote set-url origin ssh://aur@aur.archlinux.org/bandsnatch.git
+          git push origin HEAD:master
