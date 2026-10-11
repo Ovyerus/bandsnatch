@@ -103,6 +103,42 @@ impl Api {
         Ok(response)
     }
 
+    /// Discover the logged-in fan's username using the current cookies.
+    pub fn get_current_username(&self) -> Result<String, Box<dyn Error>> {
+        let body = self.request(Method::GET, &Self::bc_path(""))?.text()?;
+        Self::username_from_homepage(&body)
+    }
+
+    fn username_from_homepage(body: &str) -> Result<String, Box<dyn Error>> {
+        let soup = Soup::new(body);
+        let data_el = soup.attr("id", "HomepageApp").find().ok_or_else(|| {
+            simple_error::SimpleError::new(
+                "Cannot detect Bandcamp username: homepage identity element is missing. Try providing your username explicitly.",
+            )
+        })?;
+        let data_blob = data_el.get("data-blob").ok_or_else(|| {
+            simple_error::SimpleError::new(
+                "Cannot detect Bandcamp username: homepage identity blob is missing. Try providing your username explicitly.",
+            )
+        })?;
+        let data: HomepageData = serde_json::from_str(&data_blob).map_err(|e| {
+            simple_error::SimpleError::new(format!(
+                "Cannot detect Bandcamp username: invalid homepage identity data ({e}). Try providing your username explicitly."
+            ))
+        })?;
+
+        if !data.page_context.identity.is_logged_in {
+            bail!("Cannot detect Bandcamp username: cookies do not identify a logged-in account. Log in to Bandcamp and export fresh cookies.");
+        }
+
+        match data.page_context.identity.fan_username {
+            Some(username) if !username.trim().is_empty() => Ok(username),
+            _ => {
+                bail!("Cannot detect Bandcamp username: the logged-in account has no fan username. Check that your account has a fan profile.");
+            }
+        }
+    }
+
     /// Filters the download map by optional artist or album filters.
     fn filter_download_map(
         unfiltered: Option<DownloadsMap>,
@@ -396,5 +432,57 @@ impl Api {
         m.println(format!("(Done) {full_title}"))?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Api;
+    use serde_json::json;
+
+    #[test]
+    fn homepage_identity_selects_the_logged_in_fan_not_the_page_owner() {
+        let body = r#"
+            <div id="pagedata" data-blob="{&quot;cfg&quot;:{}}"></div>
+            <div id="HomepageApp" data-blob="{
+                &quot;pageContext&quot;:{
+                    &quot;identity&quot;:{
+                        &quot;isLoggedIn&quot;:true,
+                        &quot;fanUsername&quot;:&quot;listener&quot;
+                    },
+                    &quot;pageFan&quot;:{&quot;pageFanUsername&quot;:&quot;someone-else&quot;}
+                }
+            }"></div>
+        "#;
+
+        assert_eq!(Api::username_from_homepage(body).unwrap(), "listener");
+    }
+
+    #[test]
+    fn homepage_identity_requires_login_and_a_fan_username() {
+        for identity in [
+            json!({"isLoggedIn": false, "fanUsername": "stale-user"}),
+            json!({"isLoggedIn": true, "fanUsername": null}),
+            json!({"isLoggedIn": true}),
+            json!({"isLoggedIn": true, "fanUsername": ""}),
+            json!({"isLoggedIn": true, "fanUsername": " \t"}),
+        ] {
+            let data = json!({"pageContext": {"identity": identity}});
+            let body = format!("<div id=\"HomepageApp\" data-blob='{data}'></div>");
+            assert!(Api::username_from_homepage(&body).is_err(), "{identity}");
+        }
+    }
+
+    #[test]
+    fn missing_or_invalid_homepage_data_returns_an_error() {
+        for body in [
+            "<html><body>Log in</body></html>",
+            r#"<div id="HomepageApp"></div>"#,
+            r#"<div id="HomepageApp" data-blob="not JSON"></div>"#,
+            r#"<div id="HomepageApp" data-blob="{}"></div>"#,
+            r#"<div id="HomepageApp" data-blob='{"pageContext":{"identity":null}}'></div>"#,
+        ] {
+            assert!(Api::username_from_homepage(body).is_err(), "{body}");
+        }
     }
 }

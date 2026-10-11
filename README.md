@@ -26,10 +26,15 @@ project in general I'd love to hear them.
 
 ## Usage
 
-The most basic usage is along the lines of
-`bandsnatch run -f <format> <username>`, as it will try to automatically fetch
-cookies from a local `cookies.json`<!-- or from Firefox (TODO)-->. But if this
-fails you can provide the `-c` option with a path to a cookies file to use.
+The most basic usage is `bandsnatch run -f <format>`. Bandsnatch detects your
+username from your authentication cookies, which it tries to load from a local
+`cookies.json` or `cookies.txt`. You can provide the `-c` option with a path to
+the cookies file to use.
+
+To select a username explicitly, keep using `bandsnatch run -f <format>
+<username>` or set `BS_USER`. The positional username takes precedence over
+`BS_USER`; either skips automatic detection. The selected collection must still
+belong to the account logged in through your cookies.
 
 For more advanced usage, you can run `bandsnatch run -h` to get output similar
 to the following.
@@ -37,12 +42,14 @@ to the following.
 ```
 Run Bandsnatch to download your collection
 
-Usage: bandsnatch run [OPTIONS] --format <AUDIO_FORMAT> <USER>
+Usage: bandsnatch run [OPTIONS] --format <AUDIO_FORMAT> [USER]
 
 Arguments:
-  <USER>  Name of the user to download releases from (must be logged in through cookies) [env: BS_USER=]
+  [USER]  Bandcamp username. If omitted, detect it from your authentication cookies [env: BS_USER=]
 
 Options:
+      --album <ALBUM>           [env: BS_ALBUM=]
+      --artist <ARTIST>         [env: BS_ARTIST=]
   -f, --format <AUDIO_FORMAT>   The audio format to download the files in [env: BS_FORMAT=] [possible values: flac, wav, aac-hi, mp3-320, aiff-lossless, vorbis, mp3-v0, alac]
   -c, --cookies <COOKIES_FILE>  [env: BS_COOKIES=]
       --debug                   Enables some extra debug output in certain scenarios [env: BS_DEBUG=]
@@ -51,7 +58,7 @@ Options:
   -j, --jobs <JOBS>             The amount of parallel jobs (threads) to use [env: BS_JOBS=] [default: 4]
   -n, --limit <LIMIT>           Maximum number of releases to download. Useful for testing [env: BS_LIMIT=]
   -o, --output-folder <FOLDER>  The folder to extract downloaded releases to [env: BS_OUTPUT_FOLDER=] [default: ./]
-  -h, --help                    Print help information
+  -h, --help                    Print help
 ```
 
 Besides these options, you can also use environment variables with the option
@@ -62,10 +69,10 @@ collection to the folder you want.
 ### Example
 
 ```
-bandsnatch run -c ./cookies.json -f flac -o ./Music ovyerus
+bandsnatch run -c ./cookies.json -f flac -o ./Music
 ```
 
-This would download my entire music collection into a local "Music" folder, and
+This would download your entire music collection into a local "Music" folder, and
 also create a `bandcamp-collection-downloader.cache` in the same directory,
 which then gets read on future runs in order to skip items it has already
 retrieved.
@@ -98,6 +105,12 @@ to extract the cookies in the Netscape format, which Bandsnatch also supports.
 If you don't provide the `--cookies` option, Bandsnatch will attempt to
 automatically find a file named `cookies.json` or `cookies.txt` in the local
 directory and load it.
+
+Automatic username detection requires cookies for a logged-in account with a
+fan profile. If Bandcamp does not recognise the session, log in and export fresh
+cookies. If the homepage identity data cannot be read, you can provide your
+username explicitly; this does not bypass authentication or collection ownership
+checks. The diagnostic `debug-collection` command still requires `--user`.
 
 <!-- Failing that, if you use Firefox on Windows or Linux,
 bandsnatch will try to automatically load the cookies from there if possible

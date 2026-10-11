@@ -11,6 +11,8 @@ and this project adheres to
 ### Added
 
 - Add `--filter` flag to filter downloads by purchase date.
+- Automatically detect the logged-in fan's username from Bandcamp cookies when
+  `run` is given neither a positional username nor `BS_USER` (#9).
 
 ### Changed
 

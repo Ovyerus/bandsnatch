@@ -17,6 +17,31 @@ had those positions as objects/arrays; check for the redaction string before
 using a debug-command dump as input. Without `--full`, the command emits only
 `collection_data`, `fan_data`, and `hidden_data`.
 
+## Homepage identity discovery
+
+When neither a positional username nor `BS_USER` is supplied to `run`, Bandsnatch
+requests `https://bandcamp.com/` with the same cookie-backed client used for
+collection requests. It reads the `data-blob` on `id="HomepageApp"` using a
+separate homepage model, not the collection model described below.
+
+The relevant paths in that homepage blob are:
+
+| Path | Role |
+| ---- | ---- |
+| `pageContext.identity.isLoggedIn` | Must be `true` before accepting a username. |
+| `pageContext.identity.fanUsername` | Non-empty fan username used to request the collection page. Missing/null/blank values are rejected. |
+
+An unauthenticated homepage capture had `isLoggedIn: false` and
+`fanUsername: null`; its `id="pagedata"` blob contained only `cfg`. Do not assume
+the collection page's `identities.fan` layout also exists on the homepage.
+As with the collection fields, this is scraped page data, not a stable API
+contract. Discovery returns an error if the markup or identity data is missing
+or malformed, and does not log the full blob.
+
+An explicit username skips discovery. In either case, the collection page must
+still report `fan_data.is_own_page == true`. `debug-collection --user` continues
+to inspect the specified profile rather than discovering one.
+
 ## Where the downloader reads
 
 | Path                    | Layout and role                                                                                                                                                                                                                                                                                                                                                                                                                                             |

@@ -81,9 +81,9 @@ pub struct Args {
     )]
     output_folder: String,
 
-    /// Name of the user to download releases from (must be logged in through cookies).
-    #[clap(env = "BS_USER")]
-    user: String,
+    /// Bandcamp username. If omitted, detect it from your authentication cookies.
+    #[arg(env = "BS_USER")]
+    user: Option<String>,
 }
 
 pub fn command(
@@ -125,6 +125,14 @@ pub fn command(
 
     let cookies = cookies::get_bandcamp_cookies(cookies_file.as_deref())?;
     let api = Arc::new(api::Api::new(cookies));
+    let user = match user {
+        Some(user) => user,
+        None => {
+            let user = api.get_current_username()?;
+            info!("Detected Bandcamp user: {user}");
+            user
+        }
+    };
     let cache = Arc::new(Mutex::new(cache::Cache::new(
         root.join("bandcamp-collection-downloader.cache"),
     )));

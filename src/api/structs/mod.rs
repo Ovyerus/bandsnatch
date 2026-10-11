@@ -7,6 +7,25 @@ pub use crate::api::structs::digital_item::DigitalItem;
 
 pub type DownloadsMap = HashMap<String, String>;
 
+/// Identity data embedded in Bandcamp's homepage application.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct HomepageData {
+    pub page_context: HomepageContext,
+}
+
+#[derive(Deserialize)]
+pub(super) struct HomepageContext {
+    pub identity: HomepageIdentity,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct HomepageIdentity {
+    pub is_logged_in: bool,
+    pub fan_username: Option<String>,
+}
+
 // TODO: test with no hidden items, some hidden items, and no non-hidden items.
 /// Structure of the JSON blob extracted from a user's Bandcamp page.
 #[derive(Deserialize, Debug)]
