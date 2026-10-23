@@ -62,6 +62,43 @@ pub struct Item {
     /// subscriptions and physical-only purchases.
     #[serde(default)]
     pub download_available: Option<bool>,
+    /// Hints about where the item is sold. `None` for a few older releases.
+    #[serde(default)]
+    pub url_hints: Option<UrlHints>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct UrlHints {
+    pub subdomain: Option<String>,
+}
+
+/// Optional filters narrowing down which collection items get downloaded.
+#[derive(Debug, Default)]
+pub struct Filters<'a> {
+    pub album: Option<&'a String>,
+    pub artist: Option<&'a String>,
+    pub subdomain: Option<&'a String>,
+}
+
+impl Filters<'_> {
+    /// Whether an item is downloadable and passes every active filter.
+    pub fn matches(&self, item: &Item) -> bool {
+        if item.download_available != Some(true) {
+            return false;
+        }
+
+        self.album
+            .is_none_or(|v| item.item_title.eq_ignore_ascii_case(v))
+            && self
+                .artist
+                .is_none_or(|v| item.band_name.eq_ignore_ascii_case(v))
+            && self.subdomain.is_none_or(|v| {
+                item.url_hints
+                    .as_ref()
+                    .and_then(|hints| hints.subdomain.as_deref())
+                    .is_some_and(|subdomain| subdomain.eq_ignore_ascii_case(v))
+            })
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -101,8 +138,63 @@ pub struct ParsedItemsData {
 
 #[cfg(test)]
 mod tests {
-    use super::Item;
+    use super::{Filters, Item};
     use serde_json::json;
+
+    fn album(url_hints: serde_json::Value) -> Item {
+        serde_json::from_value(json!({
+            "sale_item_id": 2,
+            "sale_item_type": "i",
+            "band_name": "An Artist",
+            "item_title": "A Record",
+            "item_type": "album",
+            "download_available": true,
+            "is_preorder": false,
+            "url_hints": url_hints,
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn the_subdomain_filter_only_matches_that_subdomain() {
+        let on_label = album(json!({"subdomain": "alabel"}));
+        let elsewhere = album(json!({"subdomain": "somewhere-else"}));
+        let no_hints = album(json!(null));
+
+        let filters = Filters {
+            subdomain: Some(&"AlAbEl".to_string()),
+            ..Default::default()
+        };
+
+        assert!(filters.matches(&on_label));
+        assert!(!filters.matches(&elsewhere));
+        // Nothing to compare against, so it cannot be on the label.
+        assert!(!filters.matches(&no_hints));
+
+        // Without the filter, every downloadable item still matches.
+        assert!(Filters::default().matches(&no_hints));
+    }
+
+    #[test]
+    fn items_with_nothing_to_download_never_match() {
+        let subscription: Item = serde_json::from_value(json!({
+            "sale_item_id": 1,
+            "sale_item_type": "m",
+            "band_name": "A Label",
+            "item_title": "A Label",
+            "download_available": null,
+            "is_preorder": null,
+            "url_hints": {"subdomain": "alabel"},
+        }))
+        .unwrap();
+
+        assert!(!Filters::default().matches(&subscription));
+        assert!(!Filters {
+            subdomain: Some(&"alabel".to_string()),
+            ..Default::default()
+        }
+        .matches(&subscription));
+    }
 
     #[test]
     fn collection_entries_that_arent_releases_deserialise() {

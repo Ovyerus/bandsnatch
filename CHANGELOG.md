@@ -10,6 +10,9 @@ and this project adheres to
 
 ### Added
 
+- Add `--subdomain` flag to only download releases bought through one Bandcamp
+  subdomain, for selecting a label whose releases are each credited to a
+  different artist (#15).
 - Add `--filter` flag to filter downloads by purchase date.
 - Automatically detect the logged-in fan's username from Bandcamp cookies when
   `run` is given neither a positional username nor `BS_USER` (#9).

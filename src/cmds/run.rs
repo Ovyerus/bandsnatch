@@ -81,6 +81,10 @@ pub struct Args {
     )]
     output_folder: String,
 
+    /// Only download releases sold through this Bandcamp subdomain, e.g. a label's.
+    #[arg(long, env = "BS_SUBDOMAIN")]
+    subdomain: Option<String>,
+
     /// Bandcamp username. If omitted, detect it from your authentication cookies.
     #[arg(env = "BS_USER")]
     user: Option<String>,
@@ -98,6 +102,7 @@ pub fn command(
         jobs,
         limit,
         output_folder,
+        subdomain,
         user,
     }: Args,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -137,9 +142,12 @@ pub fn command(
         root.join("bandcamp-collection-downloader.cache"),
     )));
 
-    let download_urls = api
-        .get_download_urls(&user, artist.as_ref(), album.as_ref())?
-        .download_urls;
+    let filters = api::structs::Filters {
+        album: album.as_ref(),
+        artist: artist.as_ref(),
+        subdomain: subdomain.as_ref(),
+    };
+    let download_urls = api.get_download_urls(&user, &filters)?.download_urls;
     let items = {
         // Lock gets freed after this block.
         let cache = cache
