@@ -139,13 +139,11 @@ impl Api {
         }
     }
 
-    /// Filters the download map down to downloadable items, applying the
-    /// optional artist and album filters.
+    /// Filters the download map down to downloadable items matching `filters`.
     fn filter_download_map(
         unfiltered: Option<DownloadsMap>,
         items: &[&Item],
-        album: Option<&String>,
-        artist: Option<&String>,
+        filters: &Filters,
     ) -> HashMap<String, CollectionDownload> {
         unfiltered
             .into_iter()
@@ -154,9 +152,7 @@ impl Api {
                 items
                     .iter()
                     .find(|item| format!("{}{}", item.sale_item_type, item.sale_item_id) == id)
-                    .filter(|item| item.download_available == Some(true))
-                    .filter(|item| artist.is_none_or(|v| item.band_name.eq_ignore_ascii_case(v)))
-                    .filter(|item| album.is_none_or(|v| item.item_title.eq_ignore_ascii_case(v)))
+                    .filter(|item| filters.matches(item))
                     .map(|item| {
                         (
                             id,
@@ -174,8 +170,7 @@ impl Api {
     pub fn get_download_urls(
         &self,
         name: &str,
-        artist: Option<&String>,
-        album: Option<&String>,
+        filters: &Filters,
     ) -> Result<BandcampPage, Box<dyn Error>> {
         debug!("`get_download_urls` for Bandcamp page '{name}'");
 
@@ -212,8 +207,7 @@ impl Api {
         let mut collection = Self::filter_download_map(
             fanpage_data.collection_data.redownload_urls.take(),
             &items,
-            album,
-            artist,
+            filters,
         );
 
         let skip_hidden_items = true;
@@ -229,12 +223,8 @@ impl Api {
                 // This should never be `None` thanks to the comparison above.
                 fanpage_data.collection_data.item_count.unwrap()
             );
-            let rest = self.get_rest_downloads_in_collection(
-                &fanpage_data,
-                "collection_items",
-                album,
-                artist,
-            )?;
+            let rest =
+                self.get_rest_downloads_in_collection(&fanpage_data, "collection_items", filters)?;
             collection.extend(rest);
         }
 
@@ -245,12 +235,8 @@ impl Api {
                 "Too many in `hidden_data`, and we're told not to skip, so we need to paginate ({} total)",
                 fanpage_data.hidden_data.item_count.unwrap()
             );
-            let rest = self.get_rest_downloads_in_collection(
-                &fanpage_data,
-                "hidden_items",
-                album,
-                artist,
-            )?;
+            let rest =
+                self.get_rest_downloads_in_collection(&fanpage_data, "hidden_items", filters)?;
             collection.extend(rest);
         }
 
@@ -268,8 +254,7 @@ impl Api {
         &self,
         data: &ParsedFanpageData,
         collection_name: &str,
-        album: Option<&String>,
-        artist: Option<&String>,
+        filters: &Filters,
     ) -> Result<HashMap<String, CollectionDownload>, Box<dyn Error>> {
         debug!("Paginating results for {collection_name}");
         let collection_data = match collection_name {
@@ -302,7 +287,7 @@ impl Api {
 
             let items = body.items.iter().by_ref().collect::<Vec<_>>();
             let redownload_urls =
-                Self::filter_download_map(Some(body.redownload_urls), &items, album, artist);
+                Self::filter_download_map(Some(body.redownload_urls), &items, filters);
             trace!("Collected {} items", redownload_urls.len());
 
             collection.extend(redownload_urls);
@@ -439,7 +424,7 @@ impl Api {
 
 #[cfg(test)]
 mod tests {
-    use super::{Api, Item};
+    use super::{Api, Filters, Item};
     use serde_json::json;
 
     #[test]
@@ -477,7 +462,7 @@ mod tests {
         .into_iter()
         .collect();
 
-        let filtered = Api::filter_download_map(Some(urls), &items, None, None);
+        let filtered = Api::filter_download_map(Some(urls), &items, &Filters::default());
 
         assert_eq!(filtered.keys().collect::<Vec<_>>(), vec!["i2"]);
     }

@@ -58,8 +58,14 @@ Options:
   -j, --jobs <JOBS>             The amount of parallel jobs (threads) to use [env: BS_JOBS=] [default: 4]
   -n, --limit <LIMIT>           Maximum number of releases to download. Useful for testing [env: BS_LIMIT=]
   -o, --output-folder <FOLDER>  The folder to extract downloaded releases to [env: BS_OUTPUT_FOLDER=] [default: ./]
+      --subdomain <SUBDOMAIN>   Only download releases sold through this Bandcamp subdomain, e.g. a label's [env: BS_SUBDOMAIN=]
   -h, --help                    Print help
 ```
+
+`--artist` matches the name credited on a release, so it cannot select a whole
+label whose releases are each credited to a different artist. Use `--subdomain`
+for that: `--subdomain alabel` downloads everything bought through
+`alabel.bandcamp.com`.
 
 Besides these options, you can also use environment variables with the option
 name in `SCREAMING_SNAKE_CASE`, prefixed with `BS_`, so that if set up correctly
