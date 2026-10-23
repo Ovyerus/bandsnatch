@@ -21,6 +21,9 @@ and this project adheres to
 
 ### Fixed
 
+- Stop panicking on collection entries that aren't downloadable releases, such
+  as label subscriptions, which Bandcamp sends with `null` in place of the
+  release fields. Such entries are now skipped.
 - Make download titles filesystem safe (PR #21).
 - Redownload cached preorders when Bandcamp marks them as released (#29).
 - Add release IDs to download folder names to avoid duplicately-named releases

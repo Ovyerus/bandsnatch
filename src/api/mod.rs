@@ -139,7 +139,8 @@ impl Api {
         }
     }
 
-    /// Filters the download map by optional artist or album filters.
+    /// Filters the download map down to downloadable items, applying the
+    /// optional artist and album filters.
     fn filter_download_map(
         unfiltered: Option<DownloadsMap>,
         items: &[&Item],
@@ -153,6 +154,7 @@ impl Api {
                 items
                     .iter()
                     .find(|item| format!("{}{}", item.sale_item_type, item.sale_item_id) == id)
+                    .filter(|item| item.download_available == Some(true))
                     .filter(|item| artist.is_none_or(|v| item.band_name.eq_ignore_ascii_case(v)))
                     .filter(|item| album.is_none_or(|v| item.item_title.eq_ignore_ascii_case(v)))
                     .map(|item| {
@@ -437,8 +439,48 @@ impl Api {
 
 #[cfg(test)]
 mod tests {
-    use super::Api;
+    use super::{Api, Item};
     use serde_json::json;
+
+    #[test]
+    fn items_with_nothing_to_download_are_left_out() {
+        let subscription = json!({
+            "sale_item_id": 1,
+            "sale_item_type": "m",
+            "band_name": "A Label",
+            "item_title": "A Label",
+            "download_available": null,
+            "is_preorder": null,
+        });
+        let release = json!({
+            "sale_item_id": 2,
+            "sale_item_type": "i",
+            "band_name": "An Artist",
+            "item_title": "A Record",
+            "download_available": true,
+            "is_preorder": false,
+        });
+
+        let items: Vec<Item> = [subscription, release]
+            .into_iter()
+            .map(|item| serde_json::from_value(item).unwrap())
+            .collect();
+        let items: Vec<&Item> = items.iter().collect();
+
+        let urls = [
+            ("m1".to_string(), "https://example.invalid/sub".to_string()),
+            (
+                "i2".to_string(),
+                "https://example.invalid/release".to_string(),
+            ),
+        ]
+        .into_iter()
+        .collect();
+
+        let filtered = Api::filter_download_map(Some(urls), &items, None, None);
+
+        assert_eq!(filtered.keys().collect::<Vec<_>>(), vec!["i2"]);
+    }
 
     #[test]
     fn homepage_identity_selects_the_logged_in_fan_not_the_page_owner() {

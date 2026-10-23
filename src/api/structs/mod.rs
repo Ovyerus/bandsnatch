@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use serde_aux::prelude::deserialize_string_from_number;
+use serde_aux::prelude::{deserialize_default_from_null, deserialize_string_from_number};
 use std::collections::HashMap;
 
 pub mod digital_item;
@@ -51,8 +51,17 @@ pub struct Item {
     pub band_name: String,
     pub item_title: String,
     /// Whether Bandcamp currently exposes this item as a preorder.
-    #[serde(default)]
+    ///
+    /// Bandcamp sends `null` here for collection entries that aren't releases,
+    /// such as label subscriptions, so coerce those back to the default.
+    #[serde(default, deserialize_with = "deserialize_default_from_null")]
     pub is_preorder: bool,
+    /// Whether Bandcamp offers a digital download for this item.
+    ///
+    /// `None` for entries that have nothing to download, such as label
+    /// subscriptions and physical-only purchases.
+    #[serde(default)]
+    pub download_available: Option<bool>,
 }
 
 #[derive(Deserialize, Debug)]
@@ -89,3 +98,56 @@ pub struct ParsedItemsData {
 //     pub download_url: String,
 //     pub url: String,
 // }
+
+#[cfg(test)]
+mod tests {
+    use super::Item;
+    use serde_json::json;
+
+    #[test]
+    fn collection_entries_that_arent_releases_deserialise() {
+        // A label subscription, as Bandcamp sends it: present, but null.
+        let item: Item = serde_json::from_value(json!({
+            "sale_item_id": 1,
+            "sale_item_type": "m",
+            "band_name": "A Label",
+            "item_title": "A Label",
+            "item_type": "subscription",
+            "download_available": null,
+            "is_preorder": null,
+        }))
+        .unwrap();
+
+        assert!(!item.is_preorder);
+        assert_eq!(item.download_available, None);
+    }
+
+    #[test]
+    fn releases_keep_their_own_values() {
+        let item: Item = serde_json::from_value(json!({
+            "sale_item_id": 2,
+            "sale_item_type": "i",
+            "band_name": "An Artist",
+            "item_title": "A Record",
+            "item_type": "album",
+            "download_available": true,
+            "is_preorder": true,
+        }))
+        .unwrap();
+
+        assert!(item.is_preorder);
+        assert_eq!(item.download_available, Some(true));
+
+        // Older entries can omit both fields entirely.
+        let item: Item = serde_json::from_value(json!({
+            "sale_item_id": 3,
+            "sale_item_type": "i",
+            "band_name": "An Artist",
+            "item_title": "An Old Record",
+        }))
+        .unwrap();
+
+        assert!(!item.is_preorder);
+        assert_eq!(item.download_available, None);
+    }
+}
